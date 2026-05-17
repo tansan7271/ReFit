@@ -1,0 +1,27 @@
+# Web Framework
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+
+# Database (async MySQL)
+sqlalchemy>=2.0.40
+aiomysql==0.2.0
+pymysql==1.1.1          # alembic sync 드라이버
+
+# Migrations
+alembic==1.14.0
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Validation & Settings
+pydantic[email]>=2.10.0
+pydantic-settings>=2.6.0
+
+# Firebase (FCM 푸시 알림)
+firebase-admin==6.6.0
+
+# Dev / Test
+pytest==8.3.4
+pytest-asyncio==0.24.0
+httpx==0.28.1           # TestClient용
