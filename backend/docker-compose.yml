@@ -1,18 +1,45 @@
 services:
   db:
     image: mysql:8.0
-    container_name: persona_fit_db
+    container_name: refit_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root1234
-      MYSQL_DATABASE: persona_fit
-      MYSQL_USER: persona_fit_user
-      MYSQL_PASSWORD: fit1234
-    ports:
-      - "3306:3306"
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - persona_fit_data:/var/lib/mysql
+      - refit_db_data:/var/lib/mysql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # ports 없음 — MySQL은 Docker 내부 네트워크에서만 접근 가능
+
+  api:
+    build: .
+    container_name: refit_api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"  # localhost에서만 접근, cloudflared가 외부 프록시 담당
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: refit_tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --url http://api:8000
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - api
 
 volumes:
-  persona_fit_data:
+  refit_db_data:

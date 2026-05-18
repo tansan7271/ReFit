@@ -15,12 +15,18 @@ class Settings(BaseSettings):
     # JWT
     SECRET_KEY: str = "change-this-secret-key-in-production"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24        # 1 day
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60             # 1 hour (refresh token으로 재발급)
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # FCM (Firebase Cloud Messaging)
     FIREBASE_CREDENTIALS_PATH: str = "firebase-credentials.json"
     FIREBASE_PROJECT_ID: str = ""
+
+    # Google Gemini
+    GEMINI_API_KEY: str = ""
+
+    # OpenWeather
+    OPENWEATHER_API_KEY: str = ""
 
     class Config:
         env_file = ".env"
