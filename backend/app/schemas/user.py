@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
@@ -22,6 +24,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+    user: UserResponse | None = None
 
 
 class RefreshRequest(BaseModel):
@@ -106,3 +109,6 @@ class InBodyResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+TokenResponse.model_rebuild()
