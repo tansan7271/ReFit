@@ -55,6 +55,7 @@ class User(Base):
     character_level: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     character_xp: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
+    is_onboarding_complete: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False

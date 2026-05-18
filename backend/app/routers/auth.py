@@ -26,14 +26,15 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
         nickname=body.nickname,
     )
     db.add(user)
-    await db.flush()  # id 획득
+    await db.flush()
 
-    # 기본 알림 설정 생성
     db.add(NotificationSetting(user_id=user.id))
+    await db.refresh(user)
 
     return TokenResponse(
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),
+        user=user,
     )
 
 
@@ -51,6 +52,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     return TokenResponse(
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),
+        user=user,
     )
 
 
