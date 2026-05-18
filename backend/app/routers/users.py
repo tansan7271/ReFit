@@ -5,9 +5,58 @@ from sqlalchemy import select, desc
 from app.core.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User, UserInBody
-from app.schemas.user import UserResponse, UserProfileUpdate, InBodyCreate, InBodyResponse
+from app.models.notification import PushToken
+from app.schemas.user import (
+    UserResponse, UserProfileUpdate, InBodyCreate, InBodyResponse, OnboardingRequest,
+)
+from app.services.fcm_service import fcm_service
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+WELCOME_XP = 100
+
+
+@router.post("/me/onboard", response_model=UserResponse)
+async def complete_onboarding(
+    body: OnboardingRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.is_onboarding_complete:
+        raise HTTPException(status_code=409, detail="Onboarding already completed")
+
+    current_user.age = body.age
+    current_user.gender = body.gender
+    current_user.height_cm = body.height_cm
+    current_user.weight_kg = body.weight_kg
+    current_user.fitness_level = body.fitness_level
+    current_user.goal = body.goal
+    current_user.character_emoji = body.character_emoji
+    current_user.character_xp = WELCOME_XP
+    current_user.is_onboarding_complete = True
+    db.add(current_user)
+    await db.flush()
+
+    # FCM 웰컴 알림 (토큰이 없거나 실패해도 무시)
+    try:
+        result = await db.execute(
+            select(PushToken).where(
+                PushToken.user_id == current_user.id,
+                PushToken.is_active == True,
+            )
+        )
+        tokens = result.scalars().all()
+        for token in tokens:
+            await fcm_service.send(
+                token=token.token,
+                title=f"{body.character_emoji} 캐릭터가 탄생했어요!",
+                body="온보딩 완료 보너스로 XP 100을 드렸어요. 오늘부터 함께 운동해봐요!",
+                data={"type": "onboarding_complete"},
+            )
+    except Exception:
+        pass
+
+    return current_user
 
 
 @router.get("/me", response_model=UserResponse)
@@ -46,7 +95,6 @@ async def add_inbody(
         visceral_fat_level=body.visceral_fat_level,
         memo=body.memo,
     )
-    # 최근 체중이 있으면 유저 기본 체중도 갱신
     if body.weight_kg:
         current_user.weight_kg = body.weight_kg
         db.add(current_user)

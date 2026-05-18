@@ -30,6 +30,16 @@ class RefreshRequest(BaseModel):
 
 # ── User Profile ───────────────────────────────────────────────────────────────
 
+class OnboardingRequest(BaseModel):
+    age: int = Field(ge=10, le=100)
+    gender: Gender
+    height_cm: float = Field(ge=100, le=250)
+    weight_kg: float = Field(ge=20, le=300)
+    fitness_level: FitnessLevel
+    goal: str = Field(max_length=100)
+    character_emoji: str = Field(min_length=1, max_length=10)
+
+
 class UserProfileUpdate(BaseModel):
     nickname: str | None = Field(None, min_length=1, max_length=50)
     age: int | None = Field(None, ge=10, le=100)
@@ -54,6 +64,7 @@ class UserResponse(BaseModel):
     character_emoji: str
     character_level: int
     character_xp: int
+    is_onboarding_complete: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
