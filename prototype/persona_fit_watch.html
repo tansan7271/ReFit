@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Persona Fit — Watch</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0e0e12;
+  --accent: #8b7ff7;
+  --accent2: #f06fa0;
+  --green: #4cd6a0;
+  --amber: #f5b731;
+  --red: #f06060;
+  --text: #f0eeff;
+  --text2: #8884aa;
+  --text3: #46445a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  font-family: 'Noto Sans KR', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 20px 60px;
+}
+
+/* ── TOP ── */
+.top-bar {
+  width: 100%;
+  max-width: 980px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+.logo {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 900;
+  font-size: 18px;
+  color: var(--accent);
+  letter-spacing: -.03em;
+}
+.logo span { color: var(--accent2); }
+.ver-tag {
+  font-size: 11px;
+  color: var(--text3);
+  border: 1px solid var(--text3);
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+
+/* ── SCENE LABEL ── */
+.scene-label {
+  width: 100%;
+  max-width: 980px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.scene-title {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  color: var(--text);
+  letter-spacing: -.02em;
+}
+.scene-desc {
+  font-size: 12px;
+  color: var(--text2);
+  margin-left: auto;
+}
+
+/* ── STAGE TABS ── */
+.stage-tabs {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  max-width: 980px;
+  margin-bottom: 32px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.stage-tabs::-webkit-scrollbar { display: none; }
+.stab {
+  flex-shrink: 0;
+  padding: 7px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--text3);
+  background: transparent;
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: all .2s;
+}
+.stab:hover { border-color: var(--accent); color: var(--accent); }
+.stab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ── LAYOUT ── */
+.layout {
+  width: 100%;
+  max-width: 980px;
+  display: flex;
+  gap: 40px;
+  align-items: flex-start;
+}
+
+/* ── WATCH SHELL ── */
+.watch-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+.watch-wrap {
+  position: relative;
+  width: 260px;
+  height: 290px;
+}
+
+/* Band */
+.band-top {
+  width: 72px;
+  height: 38px;
+  background: #1e1c2e;
+  border-radius: 8px 8px 0 0;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 1px solid #2e2c44;
+}
+.band-bot {
+  width: 72px;
+  height: 38px;
+  background: #1e1c2e;
+  border-radius: 0 0 8px 8px;
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 1px solid #2e2c44;
+}
+
+/* Case */
+.watch-case {
+  width: 216px;
+  height: 216px;
+  border-radius: 50%;
+  background: #18172a;
+  border: 3px solid #2e2c44;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow:
+    0 0 0 6px #12111e,
+    0 0 0 8px #2a2840,
+    0 20px 60px rgba(0,0,0,.7),
+    inset 0 1px 0 rgba(255,255,255,.06);
+  overflow: hidden;
+}
+
+/* Crown button */
+.crown {
+  width: 8px;
+  height: 32px;
+  background: #2e2c44;
+  border-radius: 4px;
+  position: absolute;
+  right: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1px solid #3e3c54;
+}
+
+/* Watch screen */
+.watch-screen {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Individual watch faces */
+.wface {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  text-align: center;
+  overflow: hidden;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+.wface.active { display: flex; animation: fadeW .3s ease; }
+.wface:hover { opacity: .92; }
+
+@keyframes fadeW { from{opacity:0;transform:scale(.97)} to{opacity:1;transform:scale(1)} }
+
+/* ── FACE STYLES ── */
+
+/* Face: 워치페이스 */
+.face-home {
+  background: radial-gradient(ellipse at 40% 30%, #1e1a3a 0%, #0e0e16 70%);
+}
+.wf-time {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 900;
+  font-size: 44px;
+  color: #fff;
+  letter-spacing: -.04em;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+.wf-date {
+  font-size: 11px;
+  color: var(--text2);
+  margin-bottom: 14px;
+}
+.wf-char {
+  font-size: 32px;
+  margin-bottom: 6px;
+  animation: float-sm 3s ease-in-out infinite;
+}
+.wf-status {
+  font-size: 11px;
+  color: var(--text2);
+  margin-bottom: 14px;
+}
+.wf-rings {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.wf-ring-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.wf-ring-lbl { font-size: 9px; color: var(--text3); }
+.wf-ring-val { font-family: 'Nunito', sans-serif; font-size: 10px; font-weight: 700; }
+
+/* SVG ring */
+.ring-svg { transform: rotate(-90deg); }
+.ring-bg { fill: none; }
+.ring-fg { fill: none; stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+
+/* Face: 운동 전 알림 */
+.face-pre {
+  background: radial-gradient(ellipse at 50% 20%, #2a1e50 0%, #0e0e16 65%);
+}
+.pre-char-w { font-size: 40px; margin-bottom: 6px; animation: bounce-sm 2s ease-in-out infinite; }
+.pre-msg-w {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+.pre-sub-w { font-size: 10px; color: var(--text2); line-height: 1.5; margin-bottom: 12px; }
+.w-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 7px 20px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  transition: opacity .15s;
+}
+.w-btn:hover { opacity: .85; }
+.w-btn-ghost {
+  background: rgba(255,255,255,.08);
+  color: var(--text2);
+  border: none;
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  margin-top: 5px;
+}
+
+/* Face: 컨디션 요약 */
+.face-cond {
+  background: radial-gradient(ellipse at 50% 20%, #1a2e28 0%, #0e0e16 65%);
+}
+.cond-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  width: 100%;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.cond-row:last-child { border-bottom: none; }
+.cond-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+.cond-label { font-size: 11px; color: var(--text2); flex: 1; text-align: left; }
+.cond-val { font-family: 'Nunito', sans-serif; font-size: 12px; font-weight: 700; color: #fff; }
+.cond-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 6px; flex-shrink: 0; }
+.cb-warn { background: rgba(245,183,49,.18); color: var(--amber); }
+.cb-ok   { background: rgba(76,214,160,.18); color: var(--green); }
+.cb-bad  { background: rgba(240,96,96,.18);  color: var(--red); }
+
+/* Face: 식사 알림 */
+.face-meal {
+  background: radial-gradient(ellipse at 50% 20%, #2e200e 0%, #0e0e16 65%);
+}
+.meal-big { font-size: 44px; margin-bottom: 8px; }
+.meal-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+.meal-sub { font-size: 11px; color: var(--text2); line-height: 1.5; margin-bottom: 12px; }
+.meal-chips { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; }
+.meal-chip { font-size: 10px; background: rgba(245,183,49,.15); color: var(--amber); border-radius: 8px; padding: 3px 8px; font-weight: 600; border: 1px solid rgba(245,183,49,.25); }
+.timer-circle { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 28px; color: var(--amber); }
+.timer-lbl { font-size: 10px; color: var(--text2); margin-top: 1px; }
+
+/* Face: 운동 중 */
+.face-workout {
+  background: radial-gradient(ellipse at 50% 15%, #1e1060 0%, #0e0e16 65%);
+}
+.wo-big-val {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 900;
+  font-size: 52px;
+  color: #fff;
+  line-height: 1;
+  letter-spacing: -.04em;
+}
+.wo-big-unit { font-size: 14px; color: var(--text2); margin-bottom: 4px; }
+.wo-big-lbl { font-size: 10px; color: var(--text3); margin-bottom: 12px; }
+.wo-char-run { font-size: 36px; animation: run-sm .5s ease-in-out infinite alternate; margin-bottom: 6px; }
+.wo-mini-stats { display: flex; gap: 16px; }
+.wo-mini { text-align: center; }
+.wo-mini-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 14px; color: var(--text); }
+.wo-mini-lbl { font-size: 9px; color: var(--text3); }
+.wo-set-progress { display: flex; gap: 5px; margin-top: 10px; }
+.wo-set-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text3);
+}
+.wo-set-dot.done { background: var(--accent); }
+.wo-set-dot.cur { background: var(--accent2); animation: pulse-dot .8s ease-in-out infinite; }
+
+/* Face: 심박 -->
+.face-hr {
+  background: radial-gradient(ellipse at 50% 20%, #2e0e18 0%, #0e0e16 65%);
+}
+.hr-big { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 60px; color: var(--red); line-height: 1; letter-spacing: -.04em; }
+.hr-unit { font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+.hr-bar { display: flex; align-items: flex-end; gap: 3px; height: 28px; margin-bottom: 8px; }
+.hr-bar-item { width: 6px; border-radius: 3px; background: var(--red); opacity: .6; animation: hrBar .8s ease-in-out infinite alternate; }
+.hr-zone { font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 10px; background: rgba(240,96,96,.18); color: var(--red); border: 1px solid rgba(240,96,96,.25); margin-top: 4px; }
+.hr-hint { font-size: 10px; color: var(--text3); margin-top: 6px; }
+
+/* Face: 운동 종료 / 애프터케어 */
+.face-post {
+  background: radial-gradient(ellipse at 50% 20%, #1a2e20 0%, #0e0e16 65%);
+}
+.post-char-w { font-size: 38px; margin-bottom: 4px; animation: shine-sm 1.5s ease-in-out infinite alternate; }
+.post-done { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 10px; }
+.post-stats-w { display: flex; gap: 14px; margin-bottom: 12px; }
+.post-stat { text-align: center; }
+.post-stat-val { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 16px; color: var(--text); }
+.post-stat-lbl { font-size: 9px; color: var(--text3); }
+.post-care-item { font-size: 11px; color: var(--text2); padding: 4px 0; display: flex; align-items: center; gap: 5px; }
+.post-care-item .ico { font-size: 14px; }
+
+/* Face: 회복 케어 */
+.face-care {
+  background: radial-gradient(ellipse at 50% 20%, #0e2030 0%, #0e0e16 65%);
+}
+.care-big-ico { font-size: 46px; margin-bottom: 8px; }
+.care-title-w { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+.care-msg-w { font-size: 11px; color: var(--text2); line-height: 1.5; margin-bottom: 12px; }
+.care-progress { width: 100%; height: 4px; background: rgba(255,255,255,.1); border-radius: 2px; margin-bottom: 6px; }
+.care-progress-fill { height: 100%; border-radius: 2px; background: var(--green); }
+.care-step { font-size: 10px; color: var(--text3); }
+
+/* ── SWIPE DOTS ── */
+.swipe-dots {
+  display: flex;
+  gap: 5px;
+  margin-top: 4px;
+}
+.swipe-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--text3);
+  cursor: pointer;
+  transition: all .2s;
+}
+.swipe-dot.active { background: var(--accent); width: 14px; border-radius: 3px; }
+
+/* Prev/Next nav */
+.watch-nav {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.w-nav-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--text3);
+  background: transparent;
+  color: var(--text2);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .2s;
+}
+.w-nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+.w-nav-label { font-size: 11px; color: var(--text3); min-width: 80px; text-align: center; }
+
+/* ── SIDE PANEL ── */
+.side {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Screen list */
+.screen-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 24px;
+}
+.screen-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  margin: 0 -12px;
+  transition: background .15s;
+}
+.screen-item:hover { background: rgba(139,127,247,.08); }
+.screen-item.cur { background: rgba(139,127,247,.14); }
+.si-num {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--text3);
+  width: 18px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.screen-item.cur .si-num { color: var(--accent); }
+.si-icon { font-size: 20px; flex-shrink: 0; }
+.si-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.screen-item.cur .si-name { color: var(--accent); }
+.si-desc { font-size: 11px; color: var(--text2); line-height: 1.5; }
+
+.side-note {
+  background: rgba(139,127,247,.1);
+  border: 1px solid rgba(139,127,247,.2);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.8;
+}
+.side-note-title { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+
+/* Stage group headings */
+.stage-group { margin-bottom: 20px; }
+.stage-group-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text3);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  padding: 0 12px;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes float-sm { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+@keyframes bounce-sm { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+@keyframes run-sm { from{transform:translateX(-2px) rotate(-6deg)} to{transform:translateX(2px) rotate(6deg)} }
+@keyframes shine-sm { from{filter:brightness(1)} to{filter:brightness(1.2) drop-shadow(0 0 10px rgba(76,214,160,.5))} }
+@keyframes pulse-dot { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.3);opacity:.7} }
+@keyframes hrBar { from{height:30%} to{height:100%} }
+
+@media (max-width: 720px) {
+  .layout { flex-direction: column; align-items: center; }
+  .side { width: 100%; max-width: 340px; }
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="logo">Persona<span>Fit</span> <span style="font-size:13px;color:var(--text3);font-weight:700">Watch</span></div>
+  <div class="ver-tag">Watch Prototype v0.1</div>
+</div>
+
+<div class="stage-tabs">
+  <div class="stab active" onclick="setGroup('all')">전체 플로우</div>
+  <div class="stab" onclick="setGroup('pre')">운동 전</div>
+  <div class="stab" onclick="setGroup('workout')">운동 중</div>
+  <div class="stab" onclick="setGroup('post')">운동 후</div>
+</div>
+
+<div class="layout">
+
+  <!-- ═══ WATCH ═══ -->
+  <div class="watch-area">
+    <div class="watch-wrap">
+      <div class="band-top"></div>
+      <div class="band-bot"></div>
+      <div class="watch-case">
+        <div class="crown"></div>
+        <div class="watch-screen">
+
+          <!-- 1. 워치페이스 -->
+          <div class="wface face-home active" id="wf-home" onclick="cycleNext()">
+            <div class="wf-time">19:02</div>
+            <div class="wf-date">금 · 5월 8일</div>
+            <div class="wf-char">🐣</div>
+            <div class="wf-status" style="font-size:10px">😴 수면 부족 · ☀️ 22°C</div>
+            <div class="wf-rings">
+              <div class="wf-ring-wrap">
+                <svg class="ring-svg" width="34" height="34" viewBox="0 0 34 34">
+                  <circle class="ring-bg" cx="17" cy="17" r="14" stroke="rgba(139,127,247,.15)" stroke-width="4"/>
+                  <circle class="ring-fg" cx="17" cy="17" r="14" stroke="#8b7ff7" stroke-width="4" stroke-dasharray="88" stroke-dashoffset="30"/>
+                </svg>
+                <div class="wf-ring-val" style="color:#8b7ff7">66%</div>
+                <div class="wf-ring-lbl">활동</div>
+              </div>
+              <div class="wf-ring-wrap">
+                <svg class="ring-svg" width="34" height="34" viewBox="0 0 34 34">
+                  <circle class="ring-bg" cx="17" cy="17" r="14" stroke="rgba(76,214,160,.15)" stroke-width="4"/>
+                  <circle class="ring-fg" cx="17" cy="17" r="14" stroke="#4cd6a0" stroke-width="4" stroke-dasharray="88" stroke-dashoffset="52"/>
+                </svg>
+                <div class="wf-ring-val" style="color:#4cd6a0">41%</div>
+                <div class="wf-ring-lbl">수면</div>
+              </div>
+              <div class="wf-ring-wrap">
+                <svg class="ring-svg" width="34" height="34" viewBox="0 0 34 34">
+                  <circle class="ring-bg" cx="17" cy="17" r="14" stroke="rgba(245,183,49,.15)" stroke-width="4"/>
+                  <circle class="ring-fg" cx="17" cy="17" r="14" stroke="#f5b731" stroke-width="4" stroke-dasharray="88" stroke-dashoffset="16"/>
+                </svg>
+                <div class="wf-ring-val" style="color:#f5b731">82%</div>
+                <div class="wf-ring-lbl">칼로리</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. 운동 전 알림 -->
+          <div class="wface face-pre" id="wf-pre" onclick="">
+            <div class="pre-char-w">🐣</div>
+            <div class="pre-msg-w">운동<br>1시간 전!</div>
+            <div class="pre-sub-w">수면 부족 감지<br>오늘은 살살 해요 💜</div>
+            <button class="w-btn" onclick="event.stopPropagation();showFace('wf-cond')">컨디션 보기</button>
+            <button class="w-btn-ghost" onclick="event.stopPropagation();showFace('wf-meal')">식사 체크</button>
+          </div>
+
+          <!-- 3. 컨디션 요약 -->
+          <div class="wface face-cond" id="wf-cond" onclick="cycleNext()">
+            <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:8px;letter-spacing:.06em">오늘의 컨디션</div>
+            <div style="width:100%">
+              <div class="cond-row"><div class="cond-icon">😴</div><div class="cond-label">수면</div><div class="cond-val">5h12m</div><div class="cond-badge cb-bad">부족</div></div>
+              <div class="cond-row"><div class="cond-icon">❤️</div><div class="cond-label">심박</div><div class="cond-val">62bpm</div><div class="cond-badge cb-ok">정상</div></div>
+              <div class="cond-row"><div class="cond-icon">🚶</div><div class="cond-label">걸음</div><div class="cond-val">4,280</div><div class="cond-badge cb-warn">보통</div></div>
+              <div class="cond-row"><div class="cond-icon">☀️</div><div class="cond-label">날씨</div><div class="cond-val">22°C</div><div class="cond-badge cb-ok">쾌적</div></div>
+            </div>
+          </div>
+
+          <!-- 4. 식사 타이밍 -->
+          <div class="wface face-meal" id="wf-meal" onclick="cycleNext()">
+            <div class="meal-big">🍌</div>
+            <div class="meal-title">지금 탄수 챙겨요!</div>
+            <div class="meal-sub">운동까지</div>
+            <div class="timer-circle">1:00</div>
+            <div class="timer-lbl">시간 남음</div>
+            <div class="meal-chips" style="margin-top:8px">
+              <span class="meal-chip">바나나</span>
+              <span class="meal-chip">주먹밥</span>
+              <span class="meal-chip">에너지바</span>
+            </div>
+          </div>
+
+          <!-- 5. 운동 중 -->
+          <div class="wface face-workout" id="wf-workout" onclick="cycleNext()">
+            <div class="wo-char-run">🐣</div>
+            <div class="wo-big-val">28<span style="font-size:22px">:</span>14</div>
+            <div class="wo-big-unit">경과 시간</div>
+            <div class="wo-mini-stats">
+              <div class="wo-mini"><div class="wo-mini-val">3<span style="font-size:10px;color:var(--text3)">/5</span></div><div class="wo-mini-lbl">세트</div></div>
+              <div class="wo-mini"><div class="wo-mini-val">186</div><div class="wo-mini-lbl">kcal</div></div>
+              <div class="wo-mini"><div class="wo-mini-val">70<span style="font-size:10px;color:var(--text3)">kg</span></div><div class="wo-mini-lbl">현재 무게</div></div>
+            </div>
+            <div class="wo-set-progress">
+              <div class="wo-set-dot done"></div>
+              <div class="wo-set-dot done"></div>
+              <div class="wo-set-dot cur"></div>
+              <div class="wo-set-dot"></div>
+              <div class="wo-set-dot"></div>
+            </div>
+          </div>
+
+          <!-- 6. 심박 -->
+          <div class="wface face-hr" id="wf-hr" onclick="cycleNext()">
+            <div class="hr-bar">
+              <div class="hr-bar-item" style="height:40%;animation-delay:0s"></div>
+              <div class="hr-bar-item" style="height:70%;animation-delay:.1s"></div>
+              <div class="hr-bar-item" style="height:55%;animation-delay:.2s"></div>
+              <div class="hr-bar-item" style="height:90%;animation-delay:.3s"></div>
+              <div class="hr-bar-item" style="height:60%;animation-delay:.4s"></div>
+              <div class="hr-bar-item" style="height:80%;animation-delay:.5s"></div>
+              <div class="hr-bar-item" style="height:45%;animation-delay:.6s"></div>
+            </div>
+            <div class="hr-big">138</div>
+            <div class="hr-unit">bpm</div>
+            <div class="hr-zone">🔥 유산소 구간</div>
+            <div class="hr-hint" style="margin-top:6px">최대 심박의 76%</div>
+          </div>
+
+          <!-- 7. 운동 완료 -->
+          <div class="wface face-post" id="wf-post" onclick="cycleNext()">
+            <div class="post-char-w">🌟</div>
+            <div class="post-done">수고했어요!</div>
+            <div class="post-stats-w">
+              <div class="post-stat"><div class="post-stat-val">52<span style="font-size:10px">분</span></div><div class="post-stat-lbl">운동 시간</div></div>
+              <div class="post-stat"><div class="post-stat-val">342<span style="font-size:10px">kcal</span></div><div class="post-stat-lbl">소모</div></div>
+              <div class="post-stat"><div class="post-stat-val">100<span style="font-size:10px">%</span></div><div class="post-stat-lbl">달성</div></div>
+            </div>
+            <div style="width:100%;border-top:1px solid rgba(255,255,255,.06);padding-top:8px">
+              <div class="post-care-item"><span class="ico">💧</span>수분 500ml 마셔요</div>
+              <div class="post-care-item"><span class="ico">🦵</span>폼롤러 5분</div>
+              <div class="post-care-item"><span class="ico">🛁</span>반신욕 추천</div>
+            </div>
+          </div>
+
+          <!-- 8. 회복 케어 -->
+          <div class="wface face-care" id="wf-care" onclick="cycleNext()">
+            <div class="care-big-ico">🛁</div>
+            <div class="care-title-w">반신욕 타이머</div>
+            <div class="care-msg-w">38–40°C · 20분<br>다리 붓기 완화</div>
+            <div style="font-family:'Nunito',sans-serif;font-weight:900;font-size:36px;color:var(--green);letter-spacing:-.03em;margin-bottom:4px">14:32</div>
+            <div class="care-progress"><div class="care-progress-fill" style="width:27%"></div></div>
+            <div class="care-step">27% 완료</div>
+          </div>
+
+        </div><!-- /watch-screen -->
+      </div><!-- /watch-case -->
+    </div><!-- /watch-wrap -->
+
+    <!-- Dots -->
+    <div class="swipe-dots" id="dots">
+      <div class="swipe-dot active" onclick="showFace('wf-home')"></div>
+      <div class="swipe-dot" onclick="showFace('wf-pre')"></div>
+      <div class="swipe-dot" onclick="showFace('wf-cond')"></div>
+      <div class="swipe-dot" onclick="showFace('wf-meal')"></div>
+      <div class="swipe-dot" onclick="showFace('wf-workout')"></div>
+      <div class="swipe-dot" onclick="showFace('wf-hr')"></div>
+      <div class="swipe-dot" onclick="showFace('wf-post')"></div>
+      <div class="swipe-dot" onclick="showFace('wf-care')"></div>
+    </div>
+
+    <!-- Prev / Next -->
+    <div class="watch-nav">
+      <button class="w-nav-btn" onclick="cyclePrev()">←</button>
+      <div class="w-nav-label" id="nav-label">워치페이스</div>
+      <button class="w-nav-btn" onclick="cycleNext()">→</button>
+    </div>
+  </div>
+
+  <!-- ═══ SIDE ═══ -->
+  <div class="side">
+
+    <div id="group-all">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:var(--text);margin-bottom:4px;letter-spacing:-.02em">Watch 화면 구성</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">워치는 <strong style="color:var(--text)">화면 하나에 정보 하나</strong>가 원칙.<br>탭하거나 화살표로 화면을 넘겨보세요.</div>
+
+      <div class="stage-group">
+        <div class="stage-group-title">상시</div>
+        <div class="screen-list">
+          <div class="screen-item cur" id="si-home" onclick="showFaceAndMark('wf-home','si-home')">
+            <div class="si-num">1</div><div class="si-icon">⌚</div>
+            <div><div class="si-name">워치페이스</div><div class="si-desc">시간 · 캐릭터 상태 · 활동링 3개<br>수면 부족·날씨 상태 한 줄 요약</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-group">
+        <div class="stage-group-title">운동 전</div>
+        <div class="screen-list">
+          <div class="screen-item" id="si-pre" onclick="showFaceAndMark('wf-pre','si-pre')">
+            <div class="si-num">2</div><div class="si-icon">🐣</div>
+            <div><div class="si-name">운동 전 알림</div><div class="si-desc">캐릭터 + 한 줄 핵심 메시지<br>"컨디션 보기" / "식사 체크" 빠른 진입</div></div>
+          </div>
+          <div class="screen-item" id="si-cond" onclick="showFaceAndMark('wf-cond','si-cond')">
+            <div class="si-num">3</div><div class="si-icon">📊</div>
+            <div><div class="si-name">컨디션 요약</div><div class="si-desc">수면 · 심박 · 걸음 · 날씨<br>4가지 지표만, 배지로 상태 표시</div></div>
+          </div>
+          <div class="screen-item" id="si-meal" onclick="showFaceAndMark('wf-meal','si-meal')">
+            <div class="si-num">4</div><div class="si-icon">🍌</div>
+            <div><div class="si-name">식사 타이밍</div><div class="si-desc">운동까지 남은 시간 카운트다운<br>추천 식품 칩 3개</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-group">
+        <div class="stage-group-title">운동 중</div>
+        <div class="screen-list">
+          <div class="screen-item" id="si-workout" onclick="showFaceAndMark('wf-workout','si-workout')">
+            <div class="si-num">5</div><div class="si-icon">🏋️</div>
+            <div><div class="si-name">운동 대시보드</div><div class="si-desc">시간 크게 + 세트/kcal/무게 소형<br>세트 진행 도트, 캐릭터 애니</div></div>
+          </div>
+          <div class="screen-item" id="si-hr" onclick="showFaceAndMark('wf-hr','si-hr')">
+            <div class="si-num">6</div><div class="si-icon">❤️</div>
+            <div><div class="si-name">심박 & 강도</div><div class="si-desc">bpm 크게 · 심박 구간 배지<br>최대 심박 대비 % 표시</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stage-group">
+        <div class="stage-group-title">운동 후</div>
+        <div class="screen-list">
+          <div class="screen-item" id="si-post" onclick="showFaceAndMark('wf-post','si-post')">
+            <div class="si-num">7</div><div class="si-icon">🌟</div>
+            <div><div class="si-name">운동 완료</div><div class="si-desc">시간 · kcal · 달성률 요약<br>즉각 회복 케어 3가지 힌트</div></div>
+          </div>
+          <div class="screen-item" id="si-care" onclick="showFaceAndMark('wf-care','si-care')">
+            <div class="si-num">8</div><div class="si-icon">🛁</div>
+            <div><div class="si-name">회복 케어 타이머</div><div class="si-desc">반신욕·스트레칭 등 타이머<br>진행 바 + 남은 시간 표시</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="side-note">
+        <div class="side-note-title">⌚ Watch UX 원칙</div>
+        화면 하나 = 정보 하나 &nbsp;·&nbsp; 글자 최소화<br>
+        탭 = 다음 화면 &nbsp;·&nbsp; 버튼은 최대 2개<br>
+        숫자는 크게, 설명은 뺀다<br>
+        캐릭터가 상태를 직관적으로 표현<br>
+        운동 중엔 시간·세트만 — 나머지 숨김
+      </div>
+    </div>
+
+    <!-- Filtered groups (hidden by default) -->
+    <div id="group-pre" style="display:none">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:var(--text);margin-bottom:4px">운동 전 화면</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">알림 → 컨디션 → 식사 체크 순서로 1분 안에 확인.</div>
+      <div class="screen-list">
+        <div class="screen-item cur" id="si-pre2" onclick="showFaceAndMark('wf-pre','si-pre2')"><div class="si-num">1</div><div class="si-icon">🐣</div><div><div class="si-name">운동 전 알림</div><div class="si-desc">캐릭터 + 핵심 메시지 + 빠른 버튼</div></div></div>
+        <div class="screen-item" id="si-cond2" onclick="showFaceAndMark('wf-cond','si-cond2')"><div class="si-num">2</div><div class="si-icon">📊</div><div><div class="si-name">컨디션 요약</div><div class="si-desc">4가지 지표만 간결하게</div></div></div>
+        <div class="screen-item" id="si-meal2" onclick="showFaceAndMark('wf-meal','si-meal2')"><div class="si-num">3</div><div class="si-icon">🍌</div><div><div class="si-name">식사 타이밍</div><div class="si-desc">카운트다운 + 추천 식품</div></div></div>
+      </div>
+      <div class="side-note"><div class="side-note-title">💡 UX 포인트</div>알림 탭 → 앱 열지 않고 워치에서 바로 확인<br>컨디션 수치 과잉 노출 금지 — 배지(부족/보통/정상)로 단순화<br>식사 카운트다운으로 행동 유도</div>
+    </div>
+
+    <div id="group-workout" style="display:none">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:var(--text);margin-bottom:4px">운동 중 화면</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">운동 중엔 시선을 최소화. 숫자만 크게.</div>
+      <div class="screen-list">
+        <div class="screen-item cur" id="si-wo2" onclick="showFaceAndMark('wf-workout','si-wo2')"><div class="si-num">1</div><div class="si-icon">🏋️</div><div><div class="si-name">운동 대시보드</div><div class="si-desc">타이머 52px + 세트 도트 진행<br>캐릭터가 함께 움직임</div></div></div>
+        <div class="screen-item" id="si-hr2" onclick="showFaceAndMark('wf-hr','si-hr2')"><div class="si-num">2</div><div class="si-icon">❤️</div><div><div class="si-name">심박 모니터</div><div class="si-desc">bpm 크게 · 구간 배지 · 최대심박 %</div></div></div>
+      </div>
+      <div class="side-note"><div class="side-note-title">💡 UX 포인트</div>화면 2개만 — 더 이상 넣지 않음<br>세트 완료는 진동 피드백 + 도트 채움<br>심박 화면은 손목 들어올리면 자동 표시</div>
+    </div>
+
+    <div id="group-post" style="display:none">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:var(--text);margin-bottom:4px">운동 후 화면</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">완료 → 즉각 케어 힌트 → 타이머로 회복 유도.</div>
+      <div class="screen-list">
+        <div class="screen-item cur" id="si-post2" onclick="showFaceAndMark('wf-post','si-post2')"><div class="si-num">1</div><div class="si-icon">🌟</div><div><div class="si-name">운동 완료</div><div class="si-desc">3가지 핵심 스탯 + 회복 힌트 3개</div></div></div>
+        <div class="screen-item" id="si-care2" onclick="showFaceAndMark('wf-care','si-care2')"><div class="si-num">2</div><div class="si-icon">🛁</div><div><div class="si-name">회복 타이머</div><div class="si-desc">반신욕·스트레칭 등 시작하면 타이머 작동</div></div></div>
+      </div>
+      <div class="side-note"><div class="side-note-title">💡 UX 포인트</div>완료 화면에서 케어 힌트 3가지만<br>타이머는 워치에서 직접 시작 가능<br>완료 리포트 상세보기는 폰 앱 연동</div>
+    </div>
+
+  </div><!-- /side -->
+</div><!-- /layout -->
+
+<script>
+const faces = ['wf-home','wf-pre','wf-cond','wf-meal','wf-workout','wf-hr','wf-post','wf-care'];
+const labels = ['워치페이스','운동 전 알림','컨디션 요약','식사 타이밍','운동 대시보드','심박 & 강도','운동 완료','회복 타이머'];
+const siMap  = ['si-home','si-pre','si-cond','si-meal','si-workout','si-hr','si-post','si-care'];
+let cur = 0;
+
+function showFace(id) {
+  document.querySelectorAll('.wface').forEach(f => f.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  cur = faces.indexOf(id);
+  updateDots(); updateLabel();
+}
+function showFaceAndMark(faceId, siId) {
+  showFace(faceId);
+  // mark screen item
+  document.querySelectorAll('.screen-item').forEach(el => el.classList.remove('cur'));
+  const si = document.getElementById(siId);
+  if(si) si.classList.add('cur');
+}
+function cycleNext() {
+  cur = (cur + 1) % faces.length;
+  showFace(faces[cur]);
+  markSi(siMap[cur]);
+}
+function cyclePrev() {
+  cur = (cur - 1 + faces.length) % faces.length;
+  showFace(faces[cur]);
+  markSi(siMap[cur]);
+}
+function markSi(id) {
+  document.querySelectorAll('.screen-item').forEach(el => el.classList.remove('cur'));
+  const el = document.getElementById(id);
+  if(el) el.classList.add('cur');
+}
+function updateDots() {
+  document.querySelectorAll('#dots .swipe-dot').forEach((d, i) => d.classList.toggle('active', i === cur));
+}
+function updateLabel() {
+  document.getElementById('nav-label').textContent = labels[cur];
+}
+function setGroup(g) {
+  document.querySelectorAll('.stab').forEach((t,i) => {
+    const gs = ['all','pre','workout','post'];
+    t.classList.toggle('active', gs[i] === g);
+  });
+  ['all','pre','workout','post'].forEach(s => {
+    const el = document.getElementById('group-'+s);
+    if(el) el.style.display = s === g ? '' : 'none';
+  });
+  // jump to first face of that group
+  const first = {all:'wf-home', pre:'wf-pre', workout:'wf-workout', post:'wf-post'};
+  showFace(first[g]);
+}
+</script>
+</body>
+</html>

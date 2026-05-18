@@ -1,0 +1,2017 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Refit — App Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f5f7fb;--card:#fff;--text:#1a1a2e;--text2:#5a6070;--text3:#a0a8b8;
+  --border:#dde4f0;--accent:#1A5CCC;--accent2:#FF7200;--green:#4caf8a;--amber:#f5a623;
+  --sp:#e8effc;--sg:#e8f5ee;--sa:#fff3e0;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);font-family:'Noto Sans KR',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 16px 60px;transition:background .3s,color .3s}
+body.dark{--bg:#0f1117;--card:#1c1f2a;--text:#e8ecf5;--text2:#8890a8;--text3:#555f78;--border:#2a2f3e;--sp:#1a2545;--sg:#0f2420;--sa:#1f1500}
+body.dark .phone-shell{background:#0a0c12}
+body.dark .phone-screen{background:#1c1f2a}
+/* slime character */
+.slime-wrap{display:inline-block;position:relative}
+.slime-wrap svg{filter:drop-shadow(0 4px 12px rgba(26,92,204,.25))}
+
+.top-nav{width:100%;max-width:960px;display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.logo{font-family:'Nunito',sans-serif;font-weight:900;font-size:20px;color:var(--accent);letter-spacing:-.03em}
+.logo span{color:var(--accent2)}
+.flow-label{font-size:12px;color:var(--text3);background:#fff;border:1px solid var(--border);border-radius:20px;padding:4px 12px}
+
+.stage-tabs{display:flex;gap:8px;width:100%;max-width:960px;margin-bottom:24px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.stage-tabs::-webkit-scrollbar{display:none}
+.stage-tab{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:1.5px solid var(--border);background:#fff;cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);transition:all .2s;font-family:'Noto Sans KR',sans-serif}
+.stage-tab .dot{width:7px;height:7px;border-radius:50%;background:var(--border);transition:background .2s}
+.stage-tab:hover{border-color:var(--accent);color:var(--accent)}
+.stage-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.stage-tab:hover{border-color:var(--accent);color:var(--accent)}
+.stage-tab.active .dot{background:rgba(255,255,255,.6)}
+
+.flow-wrapper{width:100%;max-width:960px;display:flex;gap:32px;align-items:flex-start;justify-content:center}
+
+.phone-shell{flex-shrink:0;width:318px;height:648px;background:#1a1a2e;border-radius:44px;padding:13px;box-shadow:0 24px 80px rgba(0,0,0,.30),0 0 0 1px rgba(255,255,255,.08);position:relative}
+.phone-notch{width:100px;height:26px;background:#1a1a2e;border-radius:0 0 16px 16px;position:absolute;top:13px;left:50%;transform:translateX(-50%);z-index:10;display:flex;align-items:center;justify-content:center;gap:6px}
+.notch-sensor{width:22px;height:5px;border-radius:4px;background:#0f0f1e}
+.notch-cam{width:10px;height:10px;border-radius:50%;background:#0f0f1e;border:1.5px solid #2a2a3e}
+.phone-screen{width:100%;height:100%;border-radius:32px;overflow:hidden;position:relative;background:#fff}
+.screen{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;display:none;flex-direction:column}
+.screen::-webkit-scrollbar{display:none}
+.screen.active{display:flex;animation:slideIn .25s ease}
+
+.sbar{display:flex;align-items:center;justify-content:space-between;padding:28px 18px 8px;font-size:11px;font-weight:600;flex-shrink:0}
+
+.btn-primary{background:#fff;color:var(--accent);border:none;border-radius:16px;padding:14px 36px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;transition:transform .15s,box-shadow .15s;box-shadow:0 4px 20px rgba(0,0,0,.15)}
+.btn-primary:hover{transform:translateY(-1px)}
+.btn-next{flex:1;background:var(--accent);color:#fff;border:none;border-radius:14px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;transition:background .15s}
+.btn-next:hover{background:#154fb3}
+.btn-skip{padding:13px 14px;border:1.5px solid var(--border);border-radius:14px;background:#fff;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif;white-space:nowrap}
+.onb-footer{margin-top:auto;padding-top:10px;display:flex;gap:8px}
+
+.chip{padding:7px 13px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;background:#fff;transition:all .15s;font-family:'Noto Sans KR',sans-serif}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip.sel{background:var(--sp);border-color:var(--accent);color:var(--accent);font-weight:700}
+
+.input-field{width:100%;border:1.5px solid var(--border);border-radius:12px;padding:10px 13px;font-size:13px;color:var(--text);outline:none;font-family:'Noto Sans KR',sans-serif;margin-bottom:9px;transition:border-color .15s;background:#fff}
+.input-field:focus{border-color:var(--accent)}
+
+.onb-wrap{padding:14px 18px 16px;flex:1;display:flex;flex-direction:column}
+.onb-step-dots{display:flex;gap:4px;margin-bottom:14px}
+.onb-step-dots span{height:4px;border-radius:4px;background:var(--border);display:inline-block;transition:all .3s}
+.onb-step-dots span.done{background:var(--accent);width:8px}
+.onb-step-dots span.active{background:var(--accent);width:20px}
+.onb-step-dots span.todo{width:8px}
+.onb-icon{font-size:30px;margin-bottom:7px}
+.onb-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:18px;color:var(--text);margin-bottom:3px;line-height:1.3}
+.onb-sub{font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6}
+.section-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:var(--text);margin-bottom:7px}
+
+/* SPLASH */
+#screen-splash{background:#fff;align-items:center;justify-content:center}
+.splash-logo-ring{margin-bottom:12px;animation:float 3s ease-in-out infinite}
+.splash-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:34px;color:var(--accent);letter-spacing:.04em;margin-bottom:6px}
+.splash-sub{font-size:13px;color:var(--text2);text-align:center;padding:0 32px;line-height:1.6;margin-bottom:40px}
+.splash-btn{background:linear-gradient(135deg,var(--accent),#2a7aff);color:#fff;border:none;border-radius:16px;padding:14px 44px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;box-shadow:0 6px 24px rgba(26,92,204,.35)}
+
+/* HC cards */
+.hc-card{background:#fff;border-radius:14px;border:1.5px solid var(--border);padding:12px 14px;margin-bottom:9px;cursor:pointer;transition:border-color .2s}
+.hc-card:hover{border-color:var(--accent)}
+.hc-card.connected{border-color:var(--green);background:var(--sg)}
+.hc-row{display:flex;align-items:center;gap:10px}
+.hc-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.hc-name{font-size:13px;font-weight:600;color:var(--text)}
+.hc-desc{font-size:11px;color:var(--text3)}
+.hc-status{font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;flex-shrink:0}
+.hc-connect{background:var(--sp);color:var(--accent)}
+.hc-done{background:var(--sg);color:var(--green)}
+.android-tag{font-size:10px;background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:7px;padding:1px 6px;font-weight:600;margin-left:4px}
+
+.manual-box{background:#f9f8ff;border-radius:11px;border:1px dashed var(--border);padding:11px 12px;margin-top:4px}
+.manual-lbl{font-size:11px;color:var(--text3);margin-bottom:7px}
+
+/* Level cards */
+.level-card{border:1.5px solid var(--border);border-radius:13px;padding:11px 13px;margin-bottom:7px;cursor:pointer;background:#fff;transition:all .2s;display:flex;align-items:flex-start;gap:10px}
+.level-card:hover{border-color:var(--green)}
+.level-card.sel{border-color:var(--green);background:var(--sg)}
+.lv-emoji{font-size:22px;flex-shrink:0;margin-top:1px}
+.lv-name{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px}
+.lv-desc{font-size:11px;color:var(--text2);line-height:1.5}
+.lv-tag{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:7px;margin-top:3px}
+
+/* Routine builder */
+.routine-builder{background:#fff;border-radius:13px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:9px}
+.rt-row{display:flex;align-items:center;gap:6px;padding:9px 11px;border-bottom:1px solid var(--border)}
+.rt-row:last-child{border-bottom:none}
+.day-chip{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border);background:#fff;font-size:10px;font-weight:700;color:var(--text2);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;flex-shrink:0}
+.day-chip.sel{background:var(--green);border-color:var(--green);color:#fff}
+.muscle-chips{display:flex;flex-wrap:wrap;gap:4px;flex:1}
+.mchip{font-size:10px;padding:3px 7px;border-radius:9px;border:1px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;font-weight:500;transition:all .15s}
+.mchip:hover{border-color:var(--green);color:var(--green)}
+.mchip.sel{background:var(--sg);border-color:var(--green);color:#2e7d32;font-weight:700}
+.rest-mchip{font-size:10px;padding:3px 7px;border-radius:9px;border:1px solid #ffcdd2;background:#fff;color:#e57373;cursor:pointer;font-weight:500}
+.rest-mchip.sel{background:#ffebee;border-color:#e57373}
+/* Accordion for routine body-part selection */
+.rt-accord{border-bottom:1px solid var(--border)}
+.rt-accord:last-child{border-bottom:none}
+.rt-accord-hdr{display:flex;align-items:center;gap:6px;padding:8px 11px;cursor:pointer;user-select:none}
+.rt-accord-lbl{flex:1;font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rt-accord-arr{font-size:10px;color:var(--text3);flex-shrink:0;width:14px;text-align:center;transition:transform .2s}
+.rt-accord-hdr.open .rt-accord-arr{transform:rotate(180deg)}
+.rt-accord-body{display:none;padding:5px 11px 9px 43px;flex-wrap:wrap;gap:4px}
+.rt-accord-body.open{display:flex}
+
+/* Notif settings */
+.ns-card{background:#fff;border-radius:13px;border:1.5px solid var(--border);padding:11px 13px;margin-bottom:8px}
+.ns-sec-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.07em;margin-bottom:7px}
+.ns-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)}
+.ns-row:last-child{border-bottom:none}
+.ns-left{display:flex;align-items:center;gap:8px}
+.ns-icon{font-size:17px}
+.ns-name{font-size:12px;font-weight:600;color:var(--text)}
+.ns-desc{font-size:10px;color:var(--text3)}
+.toggle{position:relative;width:34px;height:19px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--border);border-radius:20px;transition:background .2s;cursor:pointer}
+.toggle input:checked+.toggle-track{background:var(--green)}
+.toggle-thumb{position:absolute;top:2px;left:2px;width:15px;height:15px;background:#fff;border-radius:50%;transition:transform .2s;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.toggle input:checked~.toggle-thumb{transform:translateX(15px)}
+.freq-sel{font-size:11px;border:1px solid var(--border);border-radius:8px;padding:3px 7px;color:var(--text2);background:#fff;outline:none;font-family:'Noto Sans KR',sans-serif}
+
+/* Char screen */
+.char-creation{padding:13px 17px 18px;display:flex;flex-direction:column;align-items:center}
+.char-big{font-size:86px;line-height:1;margin:5px 0 4px;animation:float 3s ease-in-out infinite}
+.char-lv{font-size:11px;color:#fff;background:var(--accent);border-radius:20px;padding:2px 10px;margin-bottom:13px}
+.char-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;width:100%;margin-bottom:12px}
+.stat-box{background:#fff;border:1.5px solid var(--border);border-radius:11px;padding:8px 5px;text-align:center}
+.stat-icon{font-size:16px;margin-bottom:2px}
+.stat-val{font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:var(--text)}
+.stat-lbl{font-size:10px;color:var(--text3)}
+
+/* Home */
+.home-header{background:#fff;padding:28px 17px 13px;border-bottom:1px solid var(--border)}
+.home-body{padding:13px;display:flex;flex-direction:column;gap:11px}
+.care-banner{border-radius:17px;padding:13px 15px;position:relative;overflow:hidden;display:flex;gap:9px;align-items:flex-start}
+.care-banner::before{content:'';position:absolute;top:-22px;right:-22px;width:85px;height:85px;border-radius:50%;background:rgba(255,255,255,.09)}
+.cb-char{font-size:26px;flex-shrink:0}
+.cb-tag{font-size:10px;color:rgba(255,255,255,.7);margin-bottom:3px;font-weight:600;letter-spacing:.06em}
+.cb-msg{font-size:12px;color:#fff;line-height:1.5;font-weight:500}
+.cb-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}
+.cb-chip{font-size:10px;background:rgba(255,255,255,.2);color:#fff;border-radius:7px;padding:2px 8px;font-weight:600;border:1px solid rgba(255,255,255,.25)}
+.today-plan{background:#fff;border-radius:15px;padding:12px}
+.plan-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}
+.plan-row:last-child{border-bottom:none}
+.plan-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.plan-name{font-size:12px;font-weight:600;color:var(--text)}
+.plan-time{font-size:10px;color:var(--text3)}
+.plan-badge{font-size:10px;padding:2px 7px;border-radius:8px;font-weight:600;flex-shrink:0}
+.char-mini-card{background:#fff;border-radius:15px;padding:12px;display:flex;align-items:center;gap:10px}
+.char-mini-bar{margin-top:5px;height:4px;background:var(--border);border-radius:4px;overflow:hidden}
+.char-mini-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--green),#76c442);width:62%}
+.start-btn{background:linear-gradient(135deg,var(--accent),#2a7aff);color:#fff;border:none;border-radius:15px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;width:100%;transition:all .15s;box-shadow:0 4px 20px rgba(26,92,204,.28)}
+.start-btn:hover{transform:translateY(-1px)}
+
+/* Pre-workout */
+.pre-top{background:linear-gradient(135deg,#7c6ff7,#a78bfa);padding:28px 17px 18px;flex-shrink:0}
+.pre-char{font-size:50px;text-align:center;animation:bounce 1.5s ease-in-out infinite}
+.pre-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:19px;color:#fff;margin-top:5px;margin-bottom:2px;text-align:center}
+.pre-sub{font-size:12px;color:rgba(255,255,255,.8);text-align:center}
+.pre-body{padding:13px;display:flex;flex-direction:column;gap:10px}
+.ctx-card{background:#fff;border-radius:15px;padding:12px}
+.ctx-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.ctx-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}
+.ctx-row:last-child{border-bottom:none}
+.ctx-icon{font-size:16px;width:26px;text-align:center;flex-shrink:0}
+.ctx-label{font-size:12px;color:var(--text2);flex:1}
+.ctx-val{font-size:12px;font-weight:600;color:var(--text)}
+.ctx-badge{font-size:10px;padding:2px 7px;border-radius:7px;font-weight:600;flex-shrink:0}
+.ctx-warn{background:#fff3e0;color:#e65100}
+.ctx-ok{background:var(--sg);color:var(--green)}
+.ai-card{background:#fff;border-radius:15px;padding:12px}
+.ai-header{display:flex;align-items:center;gap:6px;margin-bottom:9px}
+.ai-badge{font-size:10px;background:var(--sp);color:var(--accent);border-radius:7px;padding:2px 7px;font-weight:600;margin-left:auto}
+.ai-item{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
+.ai-item:last-child{border-bottom:none}
+.ai-emoji{font-size:18px;flex-shrink:0}
+.ai-text{font-size:12px;color:var(--text2);line-height:1.5}
+.ai-text strong{color:var(--text);font-weight:600}
+
+/* Workout */
+.wo-top{background:linear-gradient(180deg,#1a1a2e,#2d1b69);padding:28px 17px 14px;flex-shrink:0}
+.wo-mode{font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.1em;font-weight:600;margin-bottom:3px}
+.wo-type{font-family:'Nunito',sans-serif;font-weight:800;font-size:18px;color:#fff;margin-bottom:13px}
+.wo-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.ws{text-align:center}
+.ws-val{font-family:'Nunito',sans-serif;font-weight:800;font-size:24px;color:#fff;line-height:1}
+.ws-lbl{font-size:10px;color:rgba(255,255,255,.45);margin-top:2px}
+.wo-char-zone{background:rgba(255,255,255,.06);border-radius:17px;padding:10px 13px;display:flex;align-items:center;gap:10px;margin:0 17px}
+.running-char{font-size:42px;animation:run .5s ease-in-out infinite alternate}
+.wo-body{padding:13px 17px;flex:1;display:flex;flex-direction:column;gap:9px}
+.set-list{background:rgba(255,255,255,.06);border-radius:12px;padding:10px}
+.set-row{display:flex;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.set-row:last-child{border-bottom:none}
+.set-num{font-family:'Nunito',sans-serif;font-weight:700;font-size:11px;color:rgba(255,255,255,.35);width:18px}
+.set-name{flex:1;font-size:12px;color:rgba(255,255,255,.8)}
+.set-val{font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;color:#fff}
+.set-done{font-size:13px}
+.stop-btn{background:rgba(240,98,146,.2);border:1.5px solid rgba(240,98,146,.4);color:#f06292;border-radius:13px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s}
+.stop-btn:hover{background:rgba(240,98,146,.3)}
+
+/* Post */
+.post-top{background:linear-gradient(135deg,var(--accent),var(--accent2));padding:28px 17px 18px;text-align:center;flex-shrink:0}
+.post-char{font-size:58px;animation:shine 1.5s ease-in-out infinite alternate}
+.post-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:19px;color:#fff;margin-top:5px;margin-bottom:2px}
+.post-sub{font-size:12px;color:rgba(255,255,255,.8)}
+.post-body{padding:13px;display:flex;flex-direction:column;gap:10px}
+.report-card{background:#fff;border-radius:16px;padding:12px}
+.report-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.report-item{background:var(--bg);border-radius:10px;padding:8px 10px}
+.report-lbl{font-size:10px;color:var(--text3);font-weight:500;margin-bottom:1px}
+.report-val{font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text)}
+.report-unit{font-size:10px;color:var(--text2)}
+.voice-card{background:#fff;border-radius:16px;padding:12px}
+.voice-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;color:var(--text);margin-bottom:3px}
+.voice-sub{font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5}
+.voice-btn{width:100%;background:linear-gradient(135deg,var(--accent),#a78bfa);border:none;border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:#fff;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px}
+.voice-wave{display:flex;align-items:center;gap:2px;height:16px}
+.voice-wave span{display:inline-block;width:3px;border-radius:2px;background:rgba(255,255,255,.7);animation:wave 1s ease-in-out infinite}
+.voice-wave span:nth-child(1){height:5px}.voice-wave span:nth-child(2){height:10px;animation-delay:.1s}.voice-wave span:nth-child(3){height:15px;animation-delay:.2s}.voice-wave span:nth-child(4){height:8px;animation-delay:.3s}.voice-wave span:nth-child(5){height:12px;animation-delay:.4s}
+.voice-result{background:var(--sp);border-radius:10px;padding:9px 11px;margin-top:9px;font-size:12px;color:var(--accent);font-weight:600;line-height:1.5;display:none}
+.aftercare-card{background:#fff;border-radius:16px;padding:12px}
+.care-item{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)}
+.care-item:last-child{border-bottom:none}
+.care-emoji{font-size:18px;flex-shrink:0}
+.care-text{font-size:12px;color:var(--text2);line-height:1.5;flex:1}
+.care-text strong{color:var(--text);font-weight:600}
+.badge-earned{background:linear-gradient(135deg,#fff8e8,#fffde4);border:1.5px solid #f5d060;border-radius:14px;padding:11px 13px;display:flex;align-items:center;gap:9px}
+.badge-icon{font-size:28px}
+.badge-new{font-size:10px;color:var(--amber);font-weight:700;letter-spacing:.07em;margin-bottom:1px}
+.badge-name{font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;color:var(--text)}
+.badge-desc{font-size:11px;color:var(--text2)}
+
+/* Push */
+.push-bg{flex:1;display:flex;flex-direction:column;align-items:center;padding:26px 13px 18px}
+.push-time{font-family:'Nunito',sans-serif;font-size:50px;font-weight:800;color:#fff;letter-spacing:-.04em;margin-top:8px;margin-bottom:2px}
+.push-date{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:20px}
+.push-card{width:100%;background:rgba(255,255,255,.12);border-radius:16px;padding:11px 13px;display:flex;gap:8px;align-items:center;border:1px solid rgba(255,255,255,.18);margin-bottom:8px;cursor:pointer;transition:transform .15s;backdrop-filter:blur(20px)}
+.push-card:hover{transform:scale(1.01)}
+.push-card-icon{font-size:30px;flex-shrink:0}
+.push-app-name{font-size:10px;color:rgba(255,255,255,.4);letter-spacing:.07em;font-weight:600;margin-bottom:2px}
+.push-msg{font-size:12px;color:#fff;line-height:1.45;font-weight:500}
+.push-time-ago{font-size:10px;color:rgba(255,255,255,.3);flex-shrink:0}
+
+/* Side panel */
+.side-panel{flex:1;min-width:0}
+.side-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:18px;color:var(--text);margin-bottom:4px;letter-spacing:-.02em}
+.side-desc{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:16px}
+.flow-steps{display:flex;flex-direction:column}
+.flow-step{display:flex;gap:12px;cursor:pointer;padding:9px 11px;border-radius:11px;margin:0 -11px;transition:background .15s}
+.flow-step:hover{background:rgba(124,111,247,.06)}
+.flow-step.active-step{background:var(--sp)}
+.step-line{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.step-dot{width:25px;height:25px;border-radius:50%;background:#fff;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .2s;flex-shrink:0}
+.flow-step.active-step .step-dot{background:var(--accent);border-color:var(--accent)}
+.step-connector{width:2px;flex:1;min-height:13px;background:var(--border);margin:3px 0}
+.flow-step:last-child .step-connector{display:none}
+.step-name{font-weight:600;font-size:13px;color:var(--text);margin-bottom:2px;padding-top:3px}
+.flow-step.active-step .step-name{color:var(--accent)}
+.step-detail{font-size:11px;color:var(--text3);line-height:1.5}
+.screen-nav{display:flex;gap:5px;margin-top:16px;flex-wrap:wrap}
+.screen-btn{padding:5px 12px;border-radius:8px;border:1.5px solid var(--border);background:#fff;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s}
+.screen-btn:hover{border-color:var(--accent);color:var(--accent)}
+.screen-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.info-box{border-radius:12px;padding:11px 13px;margin-top:13px;font-size:12px;line-height:1.8}
+
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes float{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-7px) rotate(3deg)}}
+@keyframes run{from{transform:translateX(-3px) rotate(-5deg)}to{transform:translateX(3px) rotate(5deg)}}
+@keyframes shine{from{filter:brightness(1) drop-shadow(0 0 6px rgba(255,255,255,0))}to{filter:brightness(1.15) drop-shadow(0 0 16px rgba(255,255,255,.5))}}
+@keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+@keyframes wave{0%,100%{height:4px}50%{height:14px}}
+@keyframes sparkle{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(245,166,35,0))}50%{transform:scale(1.08);filter:drop-shadow(0 0 12px rgba(245,166,35,.6))}}
+
+/* Badges screen */
+.bd-top{background:linear-gradient(135deg,var(--accent2),#FF5500);padding:24px 17px 14px;flex-shrink:0;color:#fff;position:relative;overflow:hidden}
+.bd-top::before{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.1)}
+.bd-top::after{content:'';position:absolute;bottom:-20px;left:30px;width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,.08)}
+.bd-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:18px;margin-bottom:3px;position:relative}
+.bd-sub{font-size:11px;color:rgba(255,255,255,.8);margin-bottom:12px;position:relative}
+.bd-stat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;position:relative}
+.bd-stat{background:rgba(255,255,255,.18);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);border-radius:11px;padding:7px 4px;text-align:center}
+.bd-stat-val{font-family:'Nunito',sans-serif;font-weight:800;font-size:17px;line-height:1.1}
+.bd-stat-lbl{font-size:9px;color:rgba(255,255,255,.75);margin-top:1px;letter-spacing:.05em}
+.bd-cat-tabs{display:flex;gap:5px;padding:11px 13px 6px;overflow-x:auto;scrollbar-width:none;flex-shrink:0;background:#fff}
+.bd-cat-tabs::-webkit-scrollbar{display:none}
+.bd-cat{flex-shrink:0;font-size:11px;font-weight:600;padding:5px 11px;border-radius:14px;border:1.5px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif}
+.bd-cat.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+.bd-body{padding:11px 13px 14px;display:flex;flex-direction:column;gap:11px;background:var(--bg)}
+.bd-equipped{background:linear-gradient(135deg,#fff8e8,#ffe9d6);border-radius:14px;padding:11px 12px;border:1.5px solid #f5d060}
+.bd-eq-row{display:flex;align-items:center;gap:9px}
+.bd-eq-char{font-size:42px;flex-shrink:0;animation:float 3s ease-in-out infinite;position:relative}
+.bd-eq-deco{position:absolute;font-size:14px}
+.bd-eq-deco.d1{top:-3px;right:-6px;animation:sparkle 2s infinite}
+.bd-eq-deco.d2{bottom:0;left:-7px;animation:sparkle 2.5s infinite .3s}
+.bd-eq-info{flex:1}
+.bd-eq-lbl{font-size:10px;color:var(--amber);font-weight:700;letter-spacing:.07em;margin-bottom:2px}
+.bd-eq-name{font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;color:var(--text);margin-bottom:1px}
+.bd-eq-desc{font-size:11px;color:var(--text2)}
+.bd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.bd-item{background:#fff;border-radius:13px;padding:9px 5px;text-align:center;border:1.5px solid var(--border);position:relative;cursor:pointer;transition:all .15s}
+.bd-item:hover{border-color:var(--accent);transform:translateY(-1px)}
+.bd-item.locked{opacity:.45;background:#f3f1ee}
+.bd-item.coop{background:linear-gradient(135deg,#fff8e8,#fce4ec);border-color:#f5d060}
+.bd-item-icon{font-size:30px;line-height:1;margin-bottom:4px}
+.bd-item.locked .bd-item-icon{filter:grayscale(1)}
+.bd-item-name{font-size:10px;font-weight:700;color:var(--text);margin-bottom:1px;line-height:1.2}
+.bd-item-date{font-size:9px;color:var(--text3)}
+.bd-item-prog{font-size:9px;color:var(--accent);font-weight:600;margin-top:2px}
+.bd-new-tag{position:absolute;top:-3px;right:-3px;background:var(--accent2);color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:7px;letter-spacing:.05em}
+.bd-section-title{font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.bd-section-title .count{font-size:10px;color:var(--text3);font-weight:500}
+
+/* Community panels */
+.cm-panel{display:none;flex-direction:column;gap:10px;padding:11px 13px 14px;background:var(--bg)}
+.cm-panel.active{display:flex}
+.cm-new-coop{background:var(--sg);border:1.5px dashed var(--green);border-radius:13px;padding:11px 12px;cursor:pointer}
+.cm-new-coop-title{font-size:12px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.cm-new-coop-desc{font-size:11px;color:var(--text2);line-height:1.5}
+.cm-friend-check{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.cm-fc-chip{font-size:11px;padding:4px 10px;border-radius:11px;border:1.5px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;transition:all .15s}
+.cm-fc-chip.sel{background:var(--sg);border-color:var(--green);color:var(--green);font-weight:600}
+.cm-new-coop-btn{width:100%;margin-top:9px;background:var(--green);color:#fff;border:none;border-radius:11px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif}
+/* Edit modals for mypage */
+.edit-lv-card{border:1.5px solid var(--border);border-radius:11px;padding:9px 11px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .15s}
+.edit-lv-card.sel{border-color:var(--green);background:var(--sg)}
+.edit-day-row{display:flex;gap:6px;justify-content:center;margin:8px 0 14px}
+/* Community screen */
+.cm-top{background:#fff;padding:24px 17px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+.cm-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:19px;color:var(--text)}
+.cm-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.cm-tabs{display:flex;gap:18px;margin-top:11px;border-bottom:1px solid transparent}
+.cm-tab{font-size:12px;font-weight:600;color:var(--text3);padding:5px 0;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.cm-tab.sel{color:var(--accent);border-bottom-color:var(--accent)}
+.cm-body{padding:11px 13px 14px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.cm-pokes{background:linear-gradient(135deg,#fce4ec,#f3e5f5);border-radius:14px;padding:11px 12px;border:1.5px solid #f8bbd0}
+.cm-poke-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.cm-poke-title{font-size:12px;font-weight:700;color:#c2185b;display:flex;align-items:center;gap:5px}
+.cm-poke-count{font-size:10px;background:#ec407a;color:#fff;border-radius:9px;padding:1px 7px;font-weight:700}
+.cm-poke-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed rgba(236,64,122,.2)}
+.cm-poke-row:last-child{border-bottom:none}
+.cm-poke-emoji{font-size:22px}
+.cm-poke-msg{flex:1;font-size:11px;color:var(--text);line-height:1.4}
+.cm-poke-msg strong{font-weight:700}
+.cm-poke-time{font-size:9px;color:var(--text3)}
+.cm-coop{background:#fff;border-radius:14px;padding:12px}
+.cm-coop-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.cm-coop-title{font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:5px}
+.cm-coop-week{font-size:10px;color:var(--text3);font-weight:500}
+.cm-coop-target{display:flex;align-items:center;gap:9px;background:linear-gradient(135deg,#fff8e8,#fffde4);border-radius:11px;padding:9px 11px;border:1.5px solid #f5d060;margin-bottom:8px}
+.cm-coop-icon{font-size:30px;animation:sparkle 2.5s infinite}
+.cm-coop-info{flex:1}
+.cm-coop-name{font-family:'Nunito',sans-serif;font-weight:800;font-size:12px;color:var(--text);margin-bottom:2px}
+.cm-coop-desc{font-size:10px;color:var(--text2);line-height:1.4;margin-bottom:5px}
+.cm-coop-bar{height:5px;background:rgba(0,0,0,.06);border-radius:4px;overflow:hidden}
+.cm-coop-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px}
+.cm-coop-foot{font-size:10px;color:var(--text2);text-align:center;line-height:1.5}
+.cm-coop-foot strong{color:var(--accent)}
+.cm-friend-list{background:#fff;border-radius:14px;padding:9px 11px}
+.cm-friend-row{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--border)}
+.cm-friend-row:last-child{border-bottom:none}
+.cm-friend-avatar{width:38px;height:38px;border-radius:50%;background:var(--sp);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;position:relative}
+.cm-friend-avatar.live::after{content:'';position:absolute;bottom:0;right:0;width:10px;height:10px;border-radius:50%;background:#4caf50;border:2px solid #fff;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(76,175,80,.5)}50%{box-shadow:0 0 0 6px rgba(76,175,80,0)}}
+.cm-friend-info{flex:1;min-width:0}
+.cm-friend-name{font-size:12px;font-weight:700;color:var(--text);margin-bottom:1px}
+.cm-friend-status{font-size:10px;color:var(--text3);line-height:1.4}
+.cm-friend-status.live{color:#4caf50;font-weight:600}
+.cm-poke-btn{background:var(--sp);border:1.5px solid #d4ccff;color:var(--accent);border-radius:10px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s;flex-shrink:0;display:flex;align-items:center;gap:3px}
+.cm-poke-btn:hover{background:var(--accent);color:#fff}
+.cm-poke-btn.sent{background:#e8f5ee;border-color:#a5d6a7;color:#2e7d32;cursor:default}
+.cm-add-btn{width:100%;background:#fff;border:1.5px dashed var(--border);border-radius:14px;padding:11px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;display:flex;align-items:center;justify-content:center;gap:5px}
+.cm-add-btn:hover{border-color:var(--accent);color:var(--accent)}
+.cm-no-rank{background:var(--sp);border-radius:11px;padding:9px 11px;display:flex;align-items:center;gap:7px;border:1px dashed #cac6f8}
+.cm-no-rank-icon{font-size:17px}
+.cm-no-rank-text{font-size:10px;color:var(--accent);line-height:1.45;font-weight:500}
+
+/* MyPage */
+.mp-top{background:linear-gradient(135deg,#7c6ff7,#a78bfa);padding:24px 17px 38px;flex-shrink:0;color:#fff;position:relative}
+.mp-prof-row{display:flex;align-items:center;gap:11px;position:relative;z-index:2}
+.mp-prof-char{font-size:46px;animation:float 3s ease-in-out infinite}
+.mp-prof-info{flex:1;min-width:0}
+.mp-prof-greet{font-size:10px;color:rgba(255,255,255,.7);letter-spacing:.05em;margin-bottom:2px}
+.mp-prof-name{font-family:'Nunito',sans-serif;font-weight:800;font-size:18px;letter-spacing:-.02em}
+.mp-prof-meta{font-size:11px;color:rgba(255,255,255,.8);margin-top:2px}
+.mp-edit-btn{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:5px 9px;font-size:10px;color:#fff;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;backdrop-filter:blur(8px)}
+.mp-body{padding:0 13px 16px;background:var(--bg);flex:1;display:flex;flex-direction:column;gap:11px;margin-top:-26px;position:relative;z-index:2}
+.mp-inbody{background:#fff;border-radius:16px;padding:12px;box-shadow:0 6px 24px rgba(26,92,204,.12);border:1.5px solid var(--sp)}
+.mp-ib-hdr{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.mp-ib-emoji{font-size:18px}
+.mp-ib-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;color:var(--text);flex:1}
+.mp-ib-tag{font-size:9px;background:var(--sp);color:var(--accent);border-radius:6px;padding:2px 6px;font-weight:700;letter-spacing:.05em}
+.mp-ib-last{font-size:10px;color:var(--text3);margin-bottom:9px}
+.mp-ib-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px}
+.mp-ib-cell{background:var(--bg);border-radius:10px;padding:7px 6px;text-align:center}
+.mp-ib-lbl{font-size:9px;color:var(--text3);margin-bottom:2px;font-weight:500}
+.mp-ib-val{font-family:'Nunito',sans-serif;font-weight:800;font-size:14px;color:var(--text);line-height:1.1}
+.mp-ib-val .unit{font-size:9px;color:var(--text2);font-weight:500;margin-left:1px}
+.mp-ib-delta{font-size:9px;font-weight:700;margin-top:2px}
+.mp-ib-delta.up{color:var(--green)}
+.mp-ib-delta.down{color:#e57373}
+.mp-ib-update-btn{width:100%;background:linear-gradient(135deg,var(--accent),#2a7aff);color:#fff;border:none;border-radius:11px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;display:flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 3px 12px rgba(26,92,204,.25)}
+.mp-ib-hint{font-size:10px;color:var(--text3);margin-top:7px;text-align:center;line-height:1.5}
+.mp-ib-hint strong{color:var(--accent);font-weight:600}
+.mp-menu{background:#fff;border-radius:14px;overflow:hidden}
+.mp-menu-item{display:flex;align-items:center;gap:10px;padding:11px 13px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.mp-menu-item:last-child{border-bottom:none}
+.mp-menu-item:hover{background:#fafafa}
+.mp-menu-icon{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.mp-menu-name{flex:1;font-size:13px;font-weight:600;color:var(--text)}
+.mp-menu-meta{font-size:10px;color:var(--text3)}
+.mp-menu-arrow{font-size:14px;color:var(--text3)}
+.mp-section-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.07em;padding:0 4px;margin-top:3px}
+
+/* Inbody update modal */
+.mp-modal{position:absolute;inset:0;background:rgba(26,26,46,.55);backdrop-filter:blur(4px);display:none;align-items:flex-end;z-index:50;animation:fadeIn .2s}
+.mp-modal.show{display:flex}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mp-sheet{width:100%;background:#fff;border-radius:22px 22px 0 0;padding:16px 17px 18px;animation:slideUp .25s ease;max-height:88%;overflow-y:auto;scrollbar-width:none}
+.mp-sheet::-webkit-scrollbar{display:none}
+.mp-sheet-handle{width:36px;height:4px;background:var(--border);border-radius:4px;margin:0 auto 12px}
+.mp-sheet-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text);margin-bottom:3px;text-align:center}
+.mp-sheet-sub{font-size:11px;color:var(--text3);margin-bottom:14px;text-align:center;line-height:1.5}
+.mp-sheet-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px}
+.mp-sheet-field{display:flex;flex-direction:column;gap:4px}
+.mp-sheet-field label{font-size:11px;color:var(--text2);font-weight:600;display:flex;align-items:center;gap:4px}
+.mp-sheet-field input{border:1.5px solid var(--border);border-radius:11px;padding:9px 11px;font-size:13px;color:var(--text);outline:none;font-family:'Noto Sans KR',sans-serif;transition:border-color .15s;background:#fff}
+.mp-sheet-field input:focus{border-color:var(--accent)}
+.mp-sheet-actions{display:flex;gap:7px;margin-top:7px}
+.mp-sheet-cancel{flex:0 0 auto;padding:11px 16px;border:1.5px solid var(--border);border-radius:12px;background:#fff;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif}
+.mp-sheet-save{flex:1;background:linear-gradient(135deg,var(--accent),#2a7aff);color:#fff;border:none;border-radius:12px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif}
+
+@media(max-width:740px){.flow-wrapper{flex-direction:column;align-items:center}.side-panel{width:100%;max-width:340px}.phone-shell{width:298px;height:608px}}
+
+/* Drum scroll picker */
+.drum-wrap{position:relative;height:110px;overflow:hidden;border-radius:11px;border:1.5px solid var(--border);background:var(--card)}
+.drum-center{position:absolute;top:50%;left:0;right:0;height:33px;transform:translateY(-50%);border-top:1.5px solid var(--accent);border-bottom:1.5px solid var(--accent);z-index:1;pointer-events:none;opacity:.5}
+.drum-scroll{height:110px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;padding:38px 0}
+.drum-scroll::-webkit-scrollbar{display:none}
+.drum-item{height:33px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--text2);scroll-snap-align:start;cursor:pointer;transition:all .15s}
+.drum-item.active{color:var(--accent);font-weight:700;font-size:14px}
+
+/* Routine divider */
+.routine-divider{display:flex;align-items:center;gap:8px;margin:8px 0 7px}
+.routine-divider::before,.routine-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.routine-divider span{font-size:11px;color:var(--text3);white-space:nowrap;font-weight:600}
+
+/* Community invite form */
+.cm-invite-form{background:var(--bg);border-radius:11px;border:1px dashed var(--border);padding:10px 12px;margin-top:8px}
+.cm-invite-row{display:flex;gap:7px;margin-top:6px}
+
+/* Workout screen: light mode = white bg, dark mode = dark bg */
+#screen-workout{background:var(--card)}
+
+/* Stage tabs dark mode */
+body.dark .stage-tab{background:var(--card);color:var(--text2)}
+body.dark .stage-tab.active{background:var(--accent);color:#fff}
+body.dark .flow-label{background:var(--card);border-color:var(--border);color:var(--text3)}
+
+/* Circular dial picker */
+.dial-card{background:var(--card);border-radius:14px;border:1.5px solid var(--border);padding:10px;margin-bottom:9px}
+.dial-top-row{display:flex;gap:8px;margin-bottom:6px}
+.dial-time-cell{flex:1;text-align:center;padding:6px;background:var(--bg);border-radius:10px}
+.dial-cell-lbl{font-size:9px;color:var(--text3);font-weight:600;margin-bottom:2px}
+.dial-cell-val{font-size:15px;font-weight:800;color:var(--text);font-family:'Nunito',sans-serif}
+.dial-cell-sub{font-size:9px;color:var(--text3)}
+.dial-canvas-wrap{position:relative;display:flex;align-items:center;justify-content:center}
+.dial-center-info{position:absolute;text-align:center;pointer-events:none}
+.dial-dur{font-family:'Nunito',sans-serif;font-weight:800;font-size:16px;color:var(--text)}
+.dial-dur-sub{font-size:9px;color:var(--text3)}
+
+/* Bottom navigation bar */
+.bottom-nav{display:flex;background:var(--card);border-top:1px solid var(--border);padding:8px 0 12px;flex-shrink:0}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0}
+.bn-icon{font-size:20px;line-height:1}
+.bn-label{font-size:10px;color:var(--text3);font-weight:500;font-family:'Noto Sans KR',sans-serif}
+.bn-item.active .bn-label{color:var(--accent);font-weight:700}
+.screen.has-bnav{overflow:hidden}
+.screen.has-bnav .screen-content{flex:1;overflow-y:auto;scrollbar-width:none}
+.screen.has-bnav .screen-content::-webkit-scrollbar{display:none}
+</style>
+</head>
+<body>
+
+<div class="top-nav">
+  <div class="logo" style="color:var(--accent)">RE<span style="color:var(--accent2)">FIT</span></div>
+  <div class="flow-label">App Prototype v0.2</div>
+</div>
+
+<div class="stage-tabs">
+  <div class="stage-tab active" onclick="setStage('onboarding')"><span class="dot"></span>온보딩</div>
+  <div class="stage-tab" onclick="setStage('pre')"><span class="dot"></span>운동 전 케어</div>
+  <div class="stage-tab" onclick="setStage('workout')"><span class="dot"></span>운동 중</div>
+  <div class="stage-tab" onclick="setStage('post')"><span class="dot"></span>운동 후 케어</div>
+  <div class="stage-tab" onclick="setStage('push')"><span class="dot"></span>스마트 알림</div>
+  <div class="stage-tab" onclick="setStage('badges')"><span class="dot"></span>뱃지</div>
+  <div class="stage-tab" onclick="setStage('community')"><span class="dot"></span>커뮤니티</div>
+  <div class="stage-tab" onclick="setStage('mypage')"><span class="dot"></span>마이페이지</div>
+</div>
+
+<div class="flow-wrapper">
+
+<!-- ═══ PHONE ═══ -->
+<div class="phone-shell">
+  <div class="phone-notch"><div class="notch-sensor"></div><div class="notch-cam"></div></div>
+  <div class="phone-screen">
+
+  <!-- SPLASH -->
+  <div class="screen active" id="screen-splash">
+    <div class="splash-logo-ring">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="140" height="140">
+        <defs>
+          <radialGradient id="blueGrad" cx="40%" cy="30%">
+            <stop offset="0%" stop-color="#4A90E2"/>
+            <stop offset="100%" stop-color="#1A5CCC"/>
+          </radialGradient>
+          <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#FFB830"/>
+            <stop offset="100%" stop-color="#FF7200"/>
+          </linearGradient>
+        </defs>
+        <!-- outer ring -->
+        <ellipse cx="84" cy="90" rx="62" ry="58" fill="none" stroke="url(#blueGrad)" stroke-width="14" stroke-dasharray="280 60" stroke-dashoffset="20"/>
+        <!-- inner ring -->
+        <ellipse cx="84" cy="90" rx="62" ry="58" fill="none" stroke="url(#orangeGrad)" stroke-width="7" stroke-dasharray="80 260" stroke-dashoffset="160"/>
+        <!-- arrow -->
+        <polyline points="100,48 130,80 104,80" fill="url(#orangeGrad)" stroke="none"/>
+        <rect x="100" y="80" width="30" height="10" rx="4" fill="url(#orangeGrad)"/>
+        <!-- R letter -->
+        <text x="60" y="112" font-family="'Nunito',sans-serif" font-weight="900" font-size="62" fill="url(#blueGrad)">R</text>
+      </svg>
+    </div>
+    <div class="splash-title">REFIT</div>
+    <div class="splash-sub">나만의 속도로, 오늘에 맞게.<br>개인화 운동 전·후 케어 메이트</div>
+    <button class="splash-btn" onclick="goto('screen-onb1')">시작하기</button>
+  </div>
+
+  <!-- ONB 1: 헬스케어 연동 -->
+  <div class="screen" id="screen-onb1">
+    <div class="sbar" style="background:#f0f4ff"><span>9:41</span><div style="font-size:10px;display:flex;gap:3px">●●● 🔋</div></div>
+    <div class="onb-wrap" style="background:#f0f4ff;flex:1">
+      <div class="onb-step-dots"><span class="active"></span><span class="todo"></span><span class="todo"></span><span class="todo"></span><span class="todo"></span></div>
+      <div class="onb-title">건강 데이터 연동</div>
+      <div class="onb-sub">연동하면 수동 입력 없이<br>수면·활동·체성분을 자동으로 가져와요</div>
+
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;font-weight:600">하나를 선택하거나 직접 입력하세요</div>
+
+      <div class="hc-card" id="hc-apple" onclick="selectHealth('hc-apple','apple-st','hc-samsung','samsung-st')">
+        <div class="hc-row">
+          <div class="hc-icon" style="background:#f5f5f7;overflow:hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" fill="#1d1d1f"/></svg>
+          </div>
+          <div style="flex:1"><div class="hc-name">Apple Health</div><div class="hc-desc">수면 · 심박 · 활동량 · 체중</div></div>
+          <div class="hc-status hc-connect" id="apple-st">선택</div>
+        </div>
+      </div>
+
+      <div class="hc-card" id="hc-samsung" onclick="selectHealth('hc-samsung','samsung-st','hc-apple','apple-st')">
+        <div class="hc-row">
+          <div class="hc-icon" style="background:#1428A0;overflow:hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22"><ellipse cx="12" cy="12" rx="9.5" ry="6.5" fill="none" stroke="white" stroke-width="1.3"/><text x="12" y="14.5" font-family="Arial,sans-serif" font-size="4.2" font-weight="bold" fill="white" text-anchor="middle" letter-spacing=".5">SAMSUNG</text></svg>
+          </div>
+          <div style="flex:1"><div class="hc-name">Samsung Health</div><div class="hc-desc">수면 · 활동량 · 체성분 · 스트레스</div></div>
+          <div class="hc-status hc-connect" id="samsung-st">선택</div>
+        </div>
+      </div>
+
+      <div style="text-align:center;font-size:11px;color:var(--text3);margin:4px 0">— 또는 —</div>
+
+      <div class="manual-box">
+        <div class="manual-lbl">연동 앱 없이 직접 입력</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+          <input class="input-field" style="margin-bottom:0" placeholder="체중 (kg)" oninput="updateOnb1NextBtn()">
+          <input class="input-field" style="margin-bottom:0" placeholder="키 (cm)" oninput="updateOnb1NextBtn()">
+        </div>
+      </div>
+
+      <div class="onb-footer">
+        <button class="btn-next" id="onb1-next-btn" onclick="nextFromOnb1()" style="width:100%;opacity:0.5;pointer-events:none">다음 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ONB 2: 숙련도 -->
+  <div class="screen" id="screen-onb2">
+    <div class="sbar" style="background:#f0f4ff"><span>9:41</span><div style="font-size:10px;display:flex;gap:3px">●●● 🔋</div></div>
+    <div class="onb-wrap" style="background:#f0f4ff;flex:1">
+      <div class="onb-step-dots"><span class="done"></span><span class="active"></span><span class="todo"></span><span class="todo"></span><span class="todo"></span></div>
+      <div class="onb-title">운동 숙련도</div>
+      <div class="onb-sub">솔직하게 선택할수록 추천이 더 정확해요!</div>
+
+      <div class="level-card" id="lv0" onclick="selectLv(0)">
+        <div class="lv-emoji">🌱</div>
+        <div><div class="lv-name">입문자</div><div class="lv-desc">헬스장 처음 등록, 기본 동작 익히는 중</div><span class="lv-tag" style="background:#e8f5ee;color:var(--green)">운동 3개월 미만</span></div>
+      </div>
+      <div class="level-card" id="lv1" onclick="selectLv(1)">
+        <div class="lv-emoji">🏃</div>
+        <div><div class="lv-name">초보자</div><div class="lv-desc">기본 동작은 익혔지만 루틴 불규칙</div><span class="lv-tag" style="background:#fff8e8;color:var(--amber)">3개월–1년</span></div>
+      </div>
+      <div class="level-card" id="lv2" onclick="selectLv(2)">
+        <div class="lv-emoji">🏋️</div>
+        <div><div class="lv-name">중급자</div><div class="lv-desc">분할 루틴 소화, 무게 꾸준히 증가</div><span class="lv-tag" style="background:var(--sp);color:var(--accent)">1–3년</span></div>
+      </div>
+      <div class="level-card" id="lv3" onclick="selectLv(3)">
+        <div class="lv-emoji">🔥</div>
+        <div><div class="lv-name">숙련자</div><div class="lv-desc">몸 상태를 정확히 파악하는 단계</div><span class="lv-tag" style="background:#fce4ec;color:#e91e63">3년 이상</span></div>
+      </div>
+
+      <div class="onb-footer">
+        <button class="btn-skip" onclick="goto('screen-onb1')">← 이전</button>
+        <button class="btn-next" id="lv-next-btn" onclick="nextAfterLv()">다음 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ONB 3: 루틴 설정 (통합) -->
+  <div class="screen" id="screen-onb3a">
+    <div class="sbar" style="background:#eef3fc"><span>9:41</span><div style="font-size:10px;display:flex;gap:3px">●●● 🔋</div></div>
+    <div class="onb-wrap" style="background:#eef3fc;flex:1">
+      <div class="onb-step-dots"><span class="done"></span><span class="done"></span><span class="active"></span><span class="todo"></span><span class="todo"></span></div>
+      <div class="onb-title">루틴 & 수면 설정</div>
+      <div class="onb-sub">수면 목표와 운동 시간을 설정해요</div>
+
+      <!-- 수면 원형 타이머 -->
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">🌙 수면 목표</div>
+      <div class="dial-card">
+        <div class="dial-top-row">
+          <div class="dial-time-cell">
+            <div class="dial-cell-lbl">🛏️ 취침 시간</div>
+            <div class="dial-cell-val" id="bed-time-onb">오후 10:30</div>
+            <div class="dial-cell-sub">오늘 밤</div>
+          </div>
+          <div class="dial-time-cell">
+            <div class="dial-cell-lbl">⏰ 기상</div>
+            <div class="dial-cell-val" id="wake-time-onb">오전 7:00</div>
+            <div class="dial-cell-sub">내일</div>
+          </div>
+        </div>
+        <div class="dial-canvas-wrap">
+          <canvas id="sleep-canvas-onb" width="200" height="200" style="touch-action:none;cursor:pointer"></canvas>
+          <div class="dial-center-info">
+            <div class="dial-dur" id="sleep-dur-onb">8시간 30분</div>
+            <div class="dial-dur-sub">수면 시간</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 구분선 -->
+      <div class="routine-divider"><span>운동 루틴 설정</span></div>
+
+      <!-- 운동 시작/종료 원형 타이머 -->
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">⏱ 예상 운동 시간</div>
+      <div class="dial-card">
+        <div class="dial-top-row">
+          <div class="dial-time-cell">
+            <div class="dial-cell-lbl">🏁 시작</div>
+            <div class="dial-cell-val" id="wo-start-onb">오후 7:00</div>
+          </div>
+          <div class="dial-time-cell">
+            <div class="dial-cell-lbl">🏁 종료</div>
+            <div class="dial-cell-val" id="wo-end-onb">오후 8:00</div>
+          </div>
+        </div>
+        <div class="dial-canvas-wrap">
+          <canvas id="wo-canvas-onb" width="200" height="200" style="touch-action:none;cursor:pointer"></canvas>
+          <div class="dial-center-info">
+            <div class="dial-dur" id="wo-dur-onb">1시간</div>
+            <div class="dial-dur-sub">운동 시간</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 요일별 루틴 -->
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px">📆 요일별 운동</div>
+      <div class="routine-builder">
+        <div class="rt-accord">
+          <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+            <div class="day-chip" onclick="event.stopPropagation();this.classList.toggle('sel')">월</div>
+            <div class="rt-accord-lbl">운동 선택...</div><span class="rt-accord-arr">▾</span>
+          </div>
+          <div class="rt-accord-body">
+            <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">천국의계단</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+          </div>
+        </div>
+        <div class="rt-accord">
+          <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+            <div class="day-chip" onclick="event.stopPropagation();this.classList.toggle('sel')">화</div>
+            <div class="rt-accord-lbl">운동 선택...</div><span class="rt-accord-arr">▾</span>
+          </div>
+          <div class="rt-accord-body">
+            <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">천국의계단</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+          </div>
+        </div>
+        <div class="rt-accord">
+          <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+            <div class="day-chip" onclick="event.stopPropagation();this.classList.toggle('sel')">수</div>
+            <div class="rt-accord-lbl">운동 선택...</div><span class="rt-accord-arr">▾</span>
+          </div>
+          <div class="rt-accord-body">
+            <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">천국의계단</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+          </div>
+        </div>
+        <div class="rt-accord">
+          <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+            <div class="day-chip" onclick="event.stopPropagation();this.classList.toggle('sel')">목</div>
+            <div class="rt-accord-lbl">운동 선택...</div><span class="rt-accord-arr">▾</span>
+          </div>
+          <div class="rt-accord-body">
+            <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">천국의계단</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+          </div>
+        </div>
+        <div class="rt-accord">
+          <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+            <div class="day-chip" onclick="event.stopPropagation();this.classList.toggle('sel')">금</div>
+            <div class="rt-accord-lbl">운동 선택...</div><span class="rt-accord-arr">▾</span>
+          </div>
+          <div class="rt-accord-body">
+            <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">천국의계단</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+          </div>
+        </div>
+        <div class="rt-accord">
+          <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+            <div class="day-chip" onclick="event.stopPropagation();this.classList.toggle('sel')">토</div>
+            <div class="rt-accord-lbl">운동 선택...</div><span class="rt-accord-arr">▾</span>
+          </div>
+          <div class="rt-accord-body">
+            <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">천국의계단</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+          </div>
+        </div>
+        <div class="rt-accord">
+          <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+            <div class="day-chip" onclick="event.stopPropagation();this.classList.toggle('sel')">일</div>
+            <div class="rt-accord-lbl">운동 선택...</div><span class="rt-accord-arr">▾</span>
+          </div>
+          <div class="rt-accord-body">
+            <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">천국의계단</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);line-height:1.5;padding:0 2px 6px">💡 요일 버튼으로 운동일 on/off · 화살표로 부위 선택</div>
+      <div class="onb-footer">
+        <button class="btn-skip" onclick="goto('screen-onb2')">← 이전</button>
+        <button class="btn-next" id="onb3-next-btn" onclick="nextFromOnb3()">다음 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ONB 4: 알림 설정 -->
+  <div class="screen" id="screen-onb4">
+    <div class="sbar" style="background:#f0f4ff"><span>9:41</span><div style="font-size:10px;display:flex;gap:3px">●●● 🔋</div></div>
+    <div class="onb-wrap" style="background:#f0f4ff;flex:1">
+      <div class="onb-step-dots"><span class="done"></span><span class="done"></span><span class="done"></span><span class="active"></span><span class="todo"></span></div>
+      <div class="onb-title">알림 설정</div>
+      <div class="onb-sub">어떤 알림을 받을지 선택해요.<br>마이페이지에서 언제든 바꿀 수 있어요!</div>
+
+      <div class="ns-card">
+        <div class="ns-sec-lbl">알림 빈도</div>
+        <div class="ns-row">
+          <div class="ns-left"><div class="ns-icon">📣</div><div><div class="ns-name">전체 알림 빈도</div><div class="ns-desc">AI 메시지 양 조절</div></div></div>
+          <select class="freq-sel"><option>조용하게</option><option selected>보통</option><option>적극적으로</option></select>
+        </div>
+      </div>
+
+      <div class="ns-card">
+        <div class="ns-sec-lbl">알림 종류</div>
+        <div class="ns-row">
+          <div class="ns-left"><div class="ns-icon">🏋️</div><div><div class="ns-name">운동 시작 알림</div><div class="ns-desc">예정 30분 전</div></div></div>
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div class="ns-row">
+          <div class="ns-left"><div class="ns-icon">🍱</div><div><div class="ns-name">식사 타이밍 알림</div><div class="ns-desc">운동 2시간 전</div></div></div>
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div class="ns-row">
+          <div class="ns-left"><div class="ns-icon">😴</div><div><div class="ns-name">수면 컨디션 알림</div><div class="ns-desc">수면 부족 시 강도 조절</div></div></div>
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div class="ns-row">
+          <div class="ns-left"><div class="ns-icon">☀️</div><div><div class="ns-name">날씨 맞춤 알림</div><div class="ns-desc">의상·장소 추천</div></div></div>
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div class="ns-row">
+          <div class="ns-left"><div class="ns-icon">🛁</div><div><div class="ns-name">운동 후 회복 알림</div><div class="ns-desc">스트레칭·수분·반신욕</div></div></div>
+          <label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+        <div class="ns-row">
+          <div class="ns-left"><div class="ns-icon">🌙</div><div><div class="ns-name">취침 준비 알림</div><div class="ns-desc">수면 목표 30분 전</div></div></div>
+          <label class="toggle"><input type="checkbox"><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+        </div>
+      </div>
+
+      <div class="onb-footer">
+        <button class="btn-skip" id="btn-onb4-prev">← 이전</button>
+        <button class="btn-next" onclick="goto('screen-char')">다음 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARACTER -->
+  <div class="screen" id="screen-char" style="background:linear-gradient(180deg,#eef3fc 0%,#fff 60%)">
+    <div class="sbar" style="background:#eef3fc"><span>9:41</span><div style="font-size:10px;display:flex;gap:3px">●●● 🔋</div></div>
+    <div class="char-creation">
+      <div class="onb-step-dots"><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="active"></span></div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+        <div style="font-size:13px;color:var(--text3);text-align:center">✨ 나만의 메타몽 탄생!</div>
+        <div class="char-big slime-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 130" width="100" height="100">
+            <defs>
+              <radialGradient id="slimeG1" cx="38%" cy="30%"><stop offset="0%" stop-color="#C8AAEC"/><stop offset="100%" stop-color="#7A50BC"/></radialGradient>
+            </defs>
+            <path d="M18,55 Q16,30 38,20 Q60,10 82,20 Q104,30 104,55 Q106,75 96,88 Q84,104 68,108 Q60,112 52,108 Q36,104 24,88 Q14,75 18,55Z" fill="url(#slimeG1)"/>
+            <circle cx="46" cy="52" r="6" fill="white"/><circle cx="74" cy="52" r="6" fill="white"/>
+            <circle cx="47" cy="53" r="3" fill="#2a1a4e"/><circle cx="75" cy="53" r="3" fill="#2a1a4e"/>
+            <circle cx="49" cy="51" r="1.2" fill="white"/><circle cx="77" cy="51" r="1.2" fill="white"/>
+            <path d="M50,67 Q60,76 70,67" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div style="font-size:12px;color:var(--text2)">나의 운동 메이트</div>
+        <div style="font-family:'Nunito',sans-serif;font-weight:900;font-size:21px;color:var(--text)">리핏메타몽</div>
+        <div class="char-lv">Lv. 1 · 입문 트레이니</div>
+        <div style="font-size:12px;color:var(--text2);text-align:center;line-height:1.6">운동할수록 함께 성장해요!</div>
+      </div>
+      <button class="btn-next" style="width:100%;padding:14px;font-size:15px;background:var(--accent);color:#fff;border:none;border-radius:14px;font-family:'Nunito',sans-serif;font-weight:700;cursor:pointer;margin-top:16px" onclick="setStage('pre');goto('screen-home')">같이 운동하자! 💪</button>
+    </div>
+  </div>
+
+  <!-- HOME -->
+  <div class="screen has-bnav" id="screen-home" style="background:var(--bg)">
+  <div class="screen-content">
+    <div class="home-header">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:2px">안녕하세요 👋</div>
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:var(--text)">리핏메타몽과 함께</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">2026.05.08 (금) · 맑음 ☀️ 22°C</div>
+    </div>
+    <div class="home-body">
+      <div class="care-banner" style="background:linear-gradient(135deg,var(--accent),#2a7aff)">
+        <div>
+          <div class="cb-tag">⚡ 운동 전 케어</div>
+          <div class="cb-msg">오늘 하체 데이! 1시간 후 운동.<br>지금 탄수 챙기고 스트레칭 시작해요!</div>
+          <div class="cb-chips"><span class="cb-chip">🍌 탄수 보충</span><span class="cb-chip">🧘 스트레칭</span><span class="cb-chip">💧 수분</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="section-title">오늘의 플랜</div>
+        <div class="today-plan">
+          <div class="plan-row"><div class="plan-icon" style="background:var(--sp)">🏋️</div><div style="flex:1"><div class="plan-name">하체</div><div class="plan-time">오후 7:00 예정</div></div><div class="plan-badge" style="background:var(--sp);color:var(--accent)">D-day</div></div>
+          <div class="plan-row"><div class="plan-icon" style="background:#e8f5ee">🏃</div><div style="flex:1"><div class="plan-name">러닝머신</div><div class="plan-time">운동 후 권장</div></div><div class="plan-badge" style="background:#e8f5ee;color:var(--green)">선택</div></div>
+        </div>
+      </div>
+      <div class="char-mini-card">
+        <div class="slime-wrap">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 130" width="50" height="50">
+            <defs><radialGradient id="slimeM" cx="38%" cy="30%"><stop offset="0%" stop-color="#C8AAEC"/><stop offset="100%" stop-color="#7A50BC"/></radialGradient></defs>
+            <path d="M18,55 Q16,30 38,20 Q60,10 82,20 Q104,30 104,55 Q106,75 96,88 Q84,104 68,108 Q60,112 52,108 Q36,104 24,88 Q14,75 18,55Z" fill="url(#slimeM)"/>
+            <circle cx="46" cy="52" r="6" fill="white"/><circle cx="74" cy="52" r="6" fill="white"/>
+            <circle cx="47" cy="53" r="3" fill="#2a1a4e"/><circle cx="75" cy="53" r="3" fill="#2a1a4e"/>
+            <circle cx="49" cy="51" r="1.2" fill="white"/><circle cx="77" cy="51" r="1.2" fill="white"/>
+            <path d="M50,67 Q60,76 70,67" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;color:var(--text)">리핏메타몽 · Lv.1</div>
+          <div style="font-size:11px;color:var(--accent2);font-weight:500;margin-top:1px">😊 컨디션 양호</div>
+          <div class="char-mini-bar"><div class="char-mini-fill"></div></div>
+        </div>
+      </div>
+      <button class="start-btn" style="background:linear-gradient(135deg,var(--accent),#2a7aff)" onclick="setStage('pre');goto('screen-pre')">운동 전 체크하기 →</button>
+    </div>
+  </div>
+  <nav class="bottom-nav">
+    <div class="bn-item active" onclick="bottomNav('home')"><div class="bn-icon">🏠</div><div class="bn-label">홈</div></div>
+    <div class="bn-item" onclick="bottomNav('badges')"><div class="bn-icon">🏅</div><div class="bn-label">뱃지</div></div>
+    <div class="bn-item" onclick="bottomNav('community')"><div class="bn-icon">👥</div><div class="bn-label">커뮤니티</div></div>
+    <div class="bn-item" onclick="bottomNav('mypage')"><div class="bn-icon">👤</div><div class="bn-label">마이페이지</div></div>
+  </nav>
+  </div>
+
+  <!-- PRE-WORKOUT CARE -->
+  <div class="screen" id="screen-pre" style="background:var(--bg)">
+    <div class="pre-top" style="background:linear-gradient(135deg,var(--accent),#2a7aff)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:11px;color:rgba(255,255,255,.6)">9:41</span><span style="font-size:10px;color:rgba(255,255,255,.5)">●●● 🔋</span></div>
+      <div class="pre-char slime-wrap" style="text-align:center">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 130" width="56" height="56" style="display:block;margin:0 auto">
+          <defs><radialGradient id="slimePre" cx="38%" cy="30%"><stop offset="0%" stop-color="#DDD0F4"/><stop offset="100%" stop-color="#C8AAEC"/></radialGradient></defs>
+          <path d="M18,55 Q16,30 38,20 Q60,10 82,20 Q104,30 104,55 Q106,75 96,88 Q84,104 68,108 Q60,112 52,108 Q36,104 24,88 Q14,75 18,55Z" fill="url(#slimePre)"/>
+          <circle cx="46" cy="52" r="6" fill="white"/><circle cx="74" cy="52" r="6" fill="white"/>
+          <circle cx="47" cy="53" r="3" fill="#2a1a4e"/><circle cx="75" cy="53" r="3" fill="#2a1a4e"/>
+          <circle cx="49" cy="51" r="1.2" fill="white"/><circle cx="77" cy="51" r="1.2" fill="white"/>
+          <path d="M50,67 Q60,76 70,67" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="pre-title">운동 1시간 전이에요!</div>
+      <div class="pre-sub">리핏슬라임이 오늘 컨디션 분석했어요</div>
+    </div>
+    <div class="pre-body">
+      <div class="ctx-card">
+        <div class="ctx-title">📊 오늘의 컨디션 <span style="font-size:10px;color:var(--text3);font-weight:400">(Apple Health 연동)</span></div>
+        <div class="ctx-row"><div class="ctx-icon">😴</div><div class="ctx-label">어젯밤 수면</div><div class="ctx-val">5h 12m</div><span class="ctx-badge ctx-warn">부족</span></div>
+        <div class="ctx-row"><div class="ctx-icon">🚶</div><div class="ctx-label">오늘 걸음수</div><div class="ctx-val">4,280보</div><span class="ctx-badge ctx-ok">보통</span></div>
+        <div class="ctx-row"><div class="ctx-icon">❤️</div><div class="ctx-label">안정 심박</div><div class="ctx-val">62 bpm</div><span class="ctx-badge ctx-ok">정상</span></div>
+        <div class="ctx-row"><div class="ctx-icon">☀️</div><div class="ctx-label">날씨</div><div class="ctx-val">맑음 22°C</div><span class="ctx-badge ctx-ok">쾌적</span></div>
+      </div>
+      <div class="ai-card">
+        <div class="ai-header"><span style="font-size:17px">🤖</span><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;color:var(--text)">AI 운동 전 케어</div><div class="ai-badge">Gemini</div></div>
+        <div class="ai-item"><div class="ai-emoji">😴</div><div class="ai-text">어제 <strong>5시간</strong>밖에 못 잤어요. 오늘은 기록보단 <strong>폼 유지에 집중</strong>! 무게 10% 낮춰도 좋아요.</div></div>
+        <div class="ai-item"><div class="ai-emoji">🍌</div><div class="ai-text">지금 바로 <strong>바나나 1개 또는 주먹밥</strong>으로 탄수화물 보충! 공복 하체는 너무 힘들어요.</div></div>
+        <div class="ai-item"><div class="ai-emoji">🧘</div><div class="ai-text"><strong>고관절·햄스트링 스트레칭 10분</strong> 필수! 하체 부상 예방의 핵심이에요.</div></div>
+        <div class="ai-item"><div class="ai-emoji">💧</div><div class="ai-text">지금 <strong>물 300ml</strong> 마셔두세요. 날씨 좋아도 하체는 땀이 많아요.</div></div>
+      </div>
+      <button class="start-btn" onclick="setStage('workout');goto('screen-workout')">🏋️ 운동 시작!</button>
+    </div>
+  </div>
+
+  <!-- WORKOUT -->
+  <div class="screen" id="screen-workout" style="align-items:center;justify-content:center">
+    <div style="display:flex;justify-content:space-between;width:100%;padding:28px 18px 0;position:absolute;top:0"><span class="wo-sbar-txt" style="font-size:11px;color:var(--text3)">9:41</span><span class="wo-sbar-txt" style="font-size:10px;color:var(--text3)">●●● 🔋</span></div>
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:24px;padding:0 24px">
+      <div class="wo-status-lbl" style="font-size:10px;color:var(--text2);letter-spacing:.12em;font-weight:600">● 운동 중</div>
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:17px;color:var(--text);text-align:center">워치와 연동 중이에요<br><span style="font-size:12px;font-weight:500;color:var(--text2)">Apple Watch / Samsung Watch</span></div>
+      <div class="slime-wrap" style="animation:bounce 2s ease-in-out infinite">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 130" width="100" height="100">
+          <defs><radialGradient id="slimeWo" cx="38%" cy="30%"><stop offset="0%" stop-color="#C8AAEC"/><stop offset="100%" stop-color="#7A50BC"/></radialGradient></defs>
+          <path d="M18,55 Q16,30 38,20 Q60,10 82,20 Q104,30 104,55 Q106,75 96,88 Q84,104 68,108 Q60,112 52,108 Q36,104 24,88 Q14,75 18,55Z" fill="url(#slimeWo)"/>
+          <circle cx="46" cy="52" r="6" fill="white"/><circle cx="74" cy="52" r="6" fill="white"/>
+          <circle cx="47" cy="53" r="3" fill="#2a1a4e"/><circle cx="75" cy="53" r="3" fill="#2a1a4e"/>
+          <circle cx="49" cy="51" r="1.2" fill="white"/><circle cx="77" cy="51" r="1.2" fill="white"/>
+          <path d="M48,66 Q60,76 72,66" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <ellipse cx="96" cy="30" rx="5" ry="7" fill="#DDD0F4" opacity=".7" transform="rotate(-20,96,30)"/>
+          <ellipse cx="106" cy="42" rx="4" ry="6" fill="#DDD0F4" opacity=".5" transform="rotate(-10,106,42)"/>
+        </svg>
+      </div>
+      <div style="background:var(--sp);border-radius:16px;padding:14px 20px;text-align:center;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:4px">운동 데이터는 워치에서 자동 수집돼요</div>
+        <div style="font-size:12px;color:var(--text)">종료 후 앱에서 기록을 확인하세요 💪</div>
+      </div>
+      <button style="width:100%;background:linear-gradient(135deg,var(--accent),#2a7aff);color:#fff;border:none;border-radius:16px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;box-shadow:0 6px 24px rgba(26,92,204,.4)" onclick="setStage('post');goto('screen-post')">운동 완료! 기록하기 →</button>
+    </div>
+  </div>
+
+  <!-- POST-WORKOUT CARE -->
+  <div class="screen" id="screen-post" style="background:var(--bg)">
+    <div class="post-top" style="background:var(--accent2)">
+      <div class="post-char slime-wrap" style="display:flex;justify-content:center">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 130" width="64" height="64">
+          <defs><radialGradient id="slimePost" cx="38%" cy="30%"><stop offset="0%" stop-color="#DDD0F4"/><stop offset="100%" stop-color="#C8AAEC"/></radialGradient></defs>
+          <path d="M18,55 Q16,30 38,20 Q60,10 82,20 Q104,30 104,55 Q106,75 96,88 Q84,104 68,108 Q60,112 52,108 Q36,104 24,88 Q14,75 18,55Z" fill="url(#slimePost)"/>
+          <circle cx="46" cy="52" r="6" fill="white"/><circle cx="74" cy="52" r="6" fill="white"/>
+          <circle cx="47" cy="53" r="3" fill="#2a1a4e"/><circle cx="75" cy="53" r="3" fill="#2a1a4e"/>
+          <circle cx="49" cy="51" r="1.2" fill="white"/><circle cx="77" cy="51" r="1.2" fill="white"/>
+          <path d="M46,68 Q60,80 74,68" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <text x="50" y="30" font-size="18">⭐</text>
+        </svg>
+      </div>
+      <div class="post-title">수고했어요! 🎉</div>
+      <div class="post-sub">리핏메타몽도 함께 땀 흘렸어요</div>
+    </div>
+    <div class="post-body">
+      <div class="report-card">
+        <div class="section-title" style="margin-bottom:8px">📋 오늘의 리포트</div>
+        <div class="report-grid">
+          <div class="report-item"><div class="report-lbl">총 운동 시간</div><div class="report-val">52<span class="report-unit">분</span></div></div>
+          <div class="report-item"><div class="report-lbl">칼로리 소모</div><div class="report-val">342<span class="report-unit">kcal</span></div></div>
+          <div class="report-item"><div class="report-lbl">달성률</div><div class="report-val">100<span class="report-unit">%</span></div></div>
+          <div class="report-item"><div class="report-lbl">총 볼륨</div><div class="report-val">3,420<span class="report-unit">kg</span></div></div>
+        </div>
+      </div>
+
+      <div class="aftercare-card">
+        <div class="ai-header"><span style="font-size:17px">🤖</span><div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;color:var(--text)">AI 운동 후 케어</div><div class="ai-badge">Gemini</div></div>
+        <div class="care-item"><div class="care-emoji">🍬</div><div class="care-text"><strong>포도당 보충!</strong> 고강도 하체 후 혈당이 떨어졌어요. 포도당 캔디 하나 드세요.</div></div>
+        <div class="care-item"><div class="care-emoji">💧</div><div class="care-text"><strong>수분 500ml 필수!</strong> 전해질 음료도 OK. 근육 경련 예방에 중요해요.</div></div>
+        <div class="care-item"><div class="care-emoji">🦵</div><div class="care-text">폼롤러로 <strong>대퇴사두·햄스트링 5분</strong>! 내일 근육통이 달라져요.</div></div>
+        <div class="care-item"><div class="care-emoji">🛁</div><div class="care-text">다리가 부었을 텐데, <strong>따뜻한 반신욕 38–40°C 20분</strong> 추천해요!</div></div>
+        <div class="care-item"><div class="care-emoji">🌙</div><div class="care-text">오늘 수면 부족했으니 <strong>오늘은 꼭 7시간</strong> 자야 해요. 근육 회복은 잠에서 완성돼요.</div></div>
+      </div>
+
+      <div class="badge-earned">
+        <div class="badge-icon">🔥</div>
+        <div><div class="badge-new">NEW BADGE</div><div class="badge-name">불꽃 루틴러</div><div class="badge-desc">연속 3회 운동을 완료했어요</div></div>
+      </div>
+
+      <button class="start-btn" onclick="setStage('pre');goto('screen-home')" style="background:linear-gradient(135deg,var(--accent),#2a7aff)">홈으로</button>
+    </div>
+  </div>
+
+  <!-- PUSH -->
+  <div class="screen" id="screen-push" style="background:#1a1a2e">
+    <div class="push-bg">
+      <div style="width:100%;display:flex;justify-content:space-between"><div style="font-size:11px;color:rgba(255,255,255,.4)">5월 8일 금요일</div><div style="font-size:10px;color:rgba(255,255,255,.4)">●●● 🔋</div></div>
+      <div class="push-time">18:00</div>
+      <div class="push-date">운동 1시간 전 알림</div>
+      <div class="push-card" onclick="setStage('pre');goto('screen-pre')">
+        <div class="push-card-icon" style="font-size:0;flex-shrink:0">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 130" width="38" height="38">
+            <defs><radialGradient id="slimePush" cx="38%" cy="30%"><stop offset="0%" stop-color="#C8AAEC"/><stop offset="100%" stop-color="#7A50BC"/></radialGradient></defs>
+            <path d="M18,55 Q16,30 38,20 Q60,10 82,20 Q104,30 104,55 Q106,75 96,88 Q84,104 68,108 Q60,112 52,108 Q36,104 24,88 Q14,75 18,55Z" fill="url(#slimePush)"/>
+            <circle cx="46" cy="52" r="6" fill="white"/><circle cx="74" cy="52" r="6" fill="white"/>
+            <circle cx="47" cy="53" r="3" fill="#2a1a4e"/><circle cx="75" cy="53" r="3" fill="#2a1a4e"/>
+            <circle cx="49" cy="51" r="1.2" fill="white"/><circle cx="77" cy="51" r="1.2" fill="white"/>
+            <path d="M50,67 Q60,76 70,67" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div style="flex:1"><div class="push-app-name">REFIT · 운동 전 케어</div><div class="push-msg">어제 5시간밖에 못 잤네요 😴<br>오늘은 무게 낮추고 살살 해요!</div></div>
+        <div class="push-time-ago">방금</div>
+      </div>
+      <div class="push-card">
+        <div class="push-card-icon">🍌</div>
+        <div style="flex:1"><div class="push-app-name">REFIT · 식사 타이밍</div><div class="push-msg">운동 1시간 전! 탄수화물 가볍게<br>챙겨두세요 🍙</div></div>
+        <div class="push-time-ago">1분 전</div>
+      </div>
+      <div class="push-card">
+        <div class="push-card-icon">☀️</div>
+        <div style="flex:1"><div class="push-app-name">REFIT · 날씨</div><div class="push-msg">맑고 22°C! 얇은 기능성 반팔<br>추천해요 👕</div></div>
+        <div class="push-time-ago">3분 전</div>
+      </div>
+      <div style="margin-top:auto;width:100%;text-align:center"><div style="font-size:11px;color:rgba(255,255,255,.22);margin-bottom:8px">밀어서 잠금 해제</div><div style="width:100%;height:4px;background:rgba(255,255,255,.1);border-radius:2px"></div></div>
+    </div>
+  </div>
+
+  <!-- BADGES -->
+  <div class="screen has-bnav" id="screen-badges" style="background:var(--bg)">
+  <div class="screen-content">
+    <div class="bd-top">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;position:relative"><span style="font-size:11px;color:rgba(255,255,255,.85)">9:41</span><span style="font-size:10px;color:rgba(255,255,255,.7)">●●● 🔋</span></div>
+      <div class="bd-title">내 뱃지 컬렉션</div>
+      <div class="bd-sub">리핏메타몽과 함께 모은 성장의 기록</div>
+    </div>
+    <div class="bd-body">
+      <div>
+        <div class="bd-section-title">🏆 획득한 뱃지 <span class="count">· 6개</span></div>
+        <div class="bd-grid">
+          <div class="bd-item">
+            <div class="bd-item-icon">🍕</div>
+            <div class="bd-item-name">치팅데이 마스터</div>
+            <div class="bd-item-date">3회 획득</div>
+          </div>
+          <div class="bd-item">
+            <div class="bd-new-tag">NEW</div>
+            <div class="bd-item-icon">🛏️</div>
+            <div class="bd-item-name">침대와 한몸</div>
+            <div class="bd-item-date">2회 획득</div>
+          </div>
+          <div class="bd-item">
+            <div class="bd-item-icon">🏋️</div>
+            <div class="bd-item-name">벌크 슬라임</div>
+            <div class="bd-item-date">4회 획득</div>
+          </div>
+          <div class="bd-item">
+            <div class="bd-item-icon">🧊</div>
+            <div class="bd-item-name">겨울 생존자</div>
+            <div class="bd-item-date">1회 획득</div>
+          </div>
+          <div class="bd-item">
+            <div class="bd-item-icon">🧠</div>
+            <div class="bd-item-name">철벽 멘탈</div>
+            <div class="bd-item-date">2회 획득</div>
+          </div>
+          <div class="bd-item">
+            <div class="bd-item-icon">🔥</div>
+            <div class="bd-item-name">불꽃 루틴러</div>
+            <div class="bd-item-date">5회 획득</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <nav class="bottom-nav">
+    <div class="bn-item" onclick="bottomNav('home')"><div class="bn-icon">🏠</div><div class="bn-label">홈</div></div>
+    <div class="bn-item active" onclick="bottomNav('badges')"><div class="bn-icon">🏅</div><div class="bn-label">뱃지</div></div>
+    <div class="bn-item" onclick="bottomNav('community')"><div class="bn-icon">👥</div><div class="bn-label">커뮤니티</div></div>
+    <div class="bn-item" onclick="bottomNav('mypage')"><div class="bn-icon">👤</div><div class="bn-label">마이페이지</div></div>
+  </nav>
+  </div>
+
+  <!-- COMMUNITY -->
+  <div class="screen has-bnav" id="screen-community" style="background:var(--bg)">
+  <div class="screen-content">
+    <div class="cm-top">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;color:var(--text3)">9:41</span><span style="font-size:10px;color:var(--text3)">●●● 🔋</span></div>
+      <div class="cm-title">커뮤니티</div>
+      <div class="cm-sub">경쟁 없이 함께 응원하는 메이트들</div>
+      <div class="cm-tabs">
+        <div class="cm-tab sel" onclick="selectCmTab(this,'cm-panel-friends')">친구 (5)</div>
+        <div class="cm-tab" onclick="selectCmTab(this,'cm-panel-pokes')">받은 응원 3</div>
+        <div class="cm-tab" onclick="selectCmTab(this,'cm-panel-coop')">Co-op 뱃지</div>
+      </div>
+    </div>
+
+    <!-- 친구 탭 -->
+    <div class="cm-panel active" id="cm-panel-friends">
+      <div class="cm-no-rank">
+        <div class="cm-no-rank-icon">🚫</div>
+        <div class="cm-no-rank-text">REFIT은 <strong>랭킹·순위가 없어요.</strong><br>친구는 비교가 아닌 응원의 대상이에요 💜</div>
+      </div>
+      <div>
+        <div class="bd-section-title" style="margin-bottom:6px">🐾 친구 목록 <span class="count">· 5명</span></div>
+        <div class="cm-friend-list">
+          <div class="cm-friend-row">
+            <div class="cm-friend-avatar live" style="background:#fff0e0">🦊</div>
+            <div class="cm-friend-info"><div class="cm-friend-name">지우</div><div class="cm-friend-status live">● 지금 러닝 중 · 3.2km</div></div>
+            <button class="cm-poke-btn" onclick="sendPoke(this)">💪 응원</button>
+          </div>
+          <div class="cm-friend-row">
+            <div class="cm-friend-avatar" style="background:#ffe0eb">🐰</div>
+            <div class="cm-friend-info"><div class="cm-friend-name">민서</div><div class="cm-friend-status">오늘 운동 완료 · 어깨 데이</div></div>
+            <button class="cm-poke-btn" onclick="sendPoke(this)">💪 응원</button>
+          </div>
+          <div class="cm-friend-row">
+            <div class="cm-friend-avatar" style="background:#e3f2fd">🐱</div>
+            <div class="cm-friend-info"><div class="cm-friend-name">준호</div><div class="cm-friend-status">7일 연속 운동 중 🔥</div></div>
+            <button class="cm-poke-btn sent">✓ 보냄</button>
+          </div>
+          <div class="cm-friend-row">
+            <div class="cm-friend-avatar" style="background:#e8f5ee">🐶</div>
+            <div class="cm-friend-info"><div class="cm-friend-name">하은</div><div class="cm-friend-status">오늘은 휴식일</div></div>
+            <button class="cm-poke-btn" onclick="sendPoke(this)">💪 응원</button>
+          </div>
+          <div class="cm-friend-row">
+            <div class="cm-friend-avatar" style="background:#fff8e8">🐻</div>
+            <div class="cm-friend-info"><div class="cm-friend-name">서연</div><div class="cm-friend-status">2일 전 운동</div></div>
+            <button class="cm-poke-btn" onclick="sendPoke(this)">💪 응원</button>
+          </div>
+        </div>
+      </div>
+      <button class="cm-add-btn" id="cm-add-btn" onclick="toggleInviteForm(this)"><span style="font-size:14px">＋</span> 친구 초대하기</button>
+      <div class="cm-invite-form" id="cm-invite-form" style="display:none">
+        <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px">친구 아이디로 추가하기</div>
+        <div class="cm-invite-row">
+          <input class="input-field" style="margin-bottom:0;flex:1" placeholder="아이디 입력" id="invite-id-input">
+          <button onclick="sendFriendInvite()" style="flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif">검색</button>
+        </div>
+        <div id="invite-result" style="font-size:11px;color:var(--green);margin-top:6px;display:none">✓ 친구 요청을 보냈어요!</div>
+      </div>
+    </div>
+
+    <!-- 받은 응원 탭 -->
+    <div class="cm-panel" id="cm-panel-pokes">
+      <div class="cm-pokes" style="background:#fff;border:1.5px solid var(--border)">
+        <div class="cm-poke-hdr">
+          <div class="cm-poke-title" style="color:var(--text)">💌 받은 응원</div>
+          <div class="cm-poke-count">3 NEW</div>
+        </div>
+        <div class="cm-poke-row">
+          <div class="cm-poke-emoji">🦊</div>
+          <div class="cm-poke-msg" style="color:var(--text)"><strong>지우</strong>가 응원을 보냈어요</div>
+          <div class="cm-poke-time">5분 전</div>
+        </div>
+        <div class="cm-poke-row">
+          <div class="cm-poke-emoji">🐰</div>
+          <div class="cm-poke-msg" style="color:var(--text)"><strong>민서</strong>가 콕! 찔렀어요</div>
+          <div class="cm-poke-time">2시간 전</div>
+        </div>
+        <div class="cm-poke-row">
+          <div class="cm-poke-emoji">🐱</div>
+          <div class="cm-poke-msg" style="color:var(--text)"><strong>준호</strong>가 응원해요</div>
+          <div class="cm-poke-time">어제</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Co-op 뱃지 탭 -->
+    <div class="cm-panel" id="cm-panel-coop">
+      <div class="cm-coop">
+        <div class="cm-coop-hdr">
+          <div class="cm-coop-title">✨ 이번 주 Co-op 도전</div>
+          <div class="cm-coop-week">5/5 – 5/11</div>
+        </div>
+        <div class="cm-coop-target">
+          <div class="cm-coop-icon">🏆</div>
+          <div class="cm-coop-info">
+            <div class="cm-coop-name">함께 일주일 목표 달성</div>
+            <div class="cm-coop-desc">지우, 민서와 같이 주 4회 운동 완료 시 특수 뱃지!</div>
+            <div class="cm-coop-bar"><div class="cm-coop-fill" style="width:65%;background:var(--accent2)"></div></div>
+          </div>
+        </div>
+        <div class="cm-coop-foot">현재 <strong>2/4회</strong> · 모두 함께 달성 시 <strong>Co-op 뱃지 ✨</strong> 지급</div>
+      </div>
+    </div>
+  </div>
+  <nav class="bottom-nav">
+    <div class="bn-item" onclick="bottomNav('home')"><div class="bn-icon">🏠</div><div class="bn-label">홈</div></div>
+    <div class="bn-item" onclick="bottomNav('badges')"><div class="bn-icon">🏅</div><div class="bn-label">뱃지</div></div>
+    <div class="bn-item active" onclick="bottomNav('community')"><div class="bn-icon">👥</div><div class="bn-label">커뮤니티</div></div>
+    <div class="bn-item" onclick="bottomNav('mypage')"><div class="bn-icon">👤</div><div class="bn-label">마이페이지</div></div>
+  </nav>
+  <!-- Friend invite confirm modal -->
+  <div id="cm-invite-modal" style="position:absolute;inset:0;background:rgba(26,26,46,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px">
+    <div style="background:#fff;border-radius:20px;padding:22px 20px 18px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.25)">
+      <div style="font-size:16px;font-weight:800;color:var(--text);text-align:center;margin-bottom:6px;font-family:'Nunito',sans-serif" id="cm-modal-msg">지민님을 추가할까요?</div>
+      <div style="font-size:11px;color:var(--text3);text-align:center;margin-bottom:18px">친구 요청을 보내면 상대방이 수락해야 친구가 돼요</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button onclick="cancelFriendAdd()" style="flex:1;border:1.5px solid var(--border);border-radius:13px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:var(--text2);font-family:'Noto Sans KR',sans-serif">아니요</button>
+        <button onclick="confirmFriendAdd()" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:13px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif">예</button>
+      </div>
+      <button onclick="closeFriendModal()" style="width:100%;border:1.5px solid var(--border);border-radius:13px;padding:11px;font-size:12px;font-weight:600;cursor:pointer;background:#f8f9fb;color:var(--text3);font-family:'Noto Sans KR',sans-serif">닫기</button>
+    </div>
+  </div>
+  </div>
+
+  <!-- MY PAGE -->
+  <div class="screen has-bnav" id="screen-mypage" style="background:var(--bg)">
+  <div class="screen-content">
+    <div class="mp-top" style="background:linear-gradient(135deg,var(--accent),#2a7aff)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:11px"><span style="font-size:11px;color:rgba(255,255,255,.85)">9:41</span><span style="font-size:10px;color:rgba(255,255,255,.7)">●●● 🔋</span></div>
+      <div class="mp-prof-row">
+        <div class="mp-prof-char slime-wrap" style="font-size:0;animation:float 3s ease-in-out infinite">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 130" width="52" height="52">
+            <defs><radialGradient id="slimeMp" cx="38%" cy="30%"><stop offset="0%" stop-color="#DDD0F4"/><stop offset="100%" stop-color="#C8AAEC"/></radialGradient></defs>
+            <path d="M18,55 Q16,30 38,20 Q60,10 82,20 Q104,30 104,55 Q106,75 96,88 Q84,104 68,108 Q60,112 52,108 Q36,104 24,88 Q14,75 18,55Z" fill="url(#slimeMp)"/>
+            <circle cx="46" cy="52" r="6" fill="white"/><circle cx="74" cy="52" r="6" fill="white"/>
+            <circle cx="47" cy="53" r="3" fill="#2a1a4e"/><circle cx="75" cy="53" r="3" fill="#2a1a4e"/>
+            <circle cx="49" cy="51" r="1.2" fill="white"/><circle cx="77" cy="51" r="1.2" fill="white"/>
+            <path d="M50,67 Q60,76 70,67" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="mp-prof-info">
+          <div class="mp-prof-greet">MY REFIT</div>
+          <div class="mp-prof-name">리핏메타몽 · Lv.4</div>
+          <div class="mp-prof-meta">운동 28일째 · 뱃지 12개</div>
+        </div>
+      </div>
+    </div>
+    <div class="mp-body">
+      <div class="mp-inbody">
+        <div class="mp-ib-hdr">
+          <span class="mp-ib-emoji">⚖️</span>
+          <div class="mp-ib-title">인바디 업데이트</div>
+          <span class="mp-ib-tag">권장: 주 1회</span>
+        </div>
+        <div class="mp-ib-last">마지막 업데이트 · 5월 1일 (7일 전)</div>
+        <div class="mp-ib-grid">
+          <div class="mp-ib-cell">
+            <div class="mp-ib-lbl">체중</div>
+            <div class="mp-ib-val">62.4<span class="unit">kg</span></div>
+            <div class="mp-ib-delta down">▼ 0.6</div>
+          </div>
+          <div class="mp-ib-cell">
+            <div class="mp-ib-lbl">골격근량</div>
+            <div class="mp-ib-val">28.1<span class="unit">kg</span></div>
+            <div class="mp-ib-delta up">▲ 0.3</div>
+          </div>
+          <div class="mp-ib-cell">
+            <div class="mp-ib-lbl">체지방률</div>
+            <div class="mp-ib-val">22.5<span class="unit">%</span></div>
+            <div class="mp-ib-delta down">▼ 0.8</div>
+          </div>
+        </div>
+        <button class="mp-ib-update-btn" onclick="openInbodyModal()">✏️ 오늘 수치 입력하기</button>
+        <div class="mp-ib-hint">강제 알림 없이 <strong>원할 때 자발적으로</strong> 기록해요 💜</div>
+      </div>
+
+      <div class="mp-section-lbl">기본 정보</div>
+      <div class="mp-menu">
+        <div class="mp-menu-item" onclick="openEditModal('profile')">
+          <div class="mp-menu-icon" style="background:var(--sp)">👤</div>
+          <div class="mp-menu-name">프로필</div>
+          <div class="mp-menu-meta">송수빈 · 27세</div>
+          <div class="mp-menu-arrow">›</div>
+        </div>
+        <div class="mp-menu-item" onclick="openEditModal('level')">
+          <div class="mp-menu-icon" style="background:#e8f5ee">💪</div>
+          <div class="mp-menu-name">운동 숙련도</div>
+          <div class="mp-menu-meta">초보자</div>
+          <div class="mp-menu-arrow">›</div>
+        </div>
+        <div class="mp-menu-item" onclick="openEditModal('routine')">
+          <div class="mp-menu-icon" style="background:#fff8e8">📅</div>
+          <div class="mp-menu-name">운동 루틴</div>
+          <div class="mp-menu-meta">월·수·금</div>
+          <div class="mp-menu-arrow">›</div>
+        </div>
+        <div class="mp-menu-item" onclick="openEditModal('sleep')">
+          <div class="mp-menu-icon" style="background:#e3f2fd">🌙</div>
+          <div class="mp-menu-name">수면 목표</div>
+          <div class="mp-menu-meta">00:00 – 07:00</div>
+          <div class="mp-menu-arrow">›</div>
+        </div>
+      </div>
+
+      <div class="mp-section-lbl">환경 설정</div>
+      <div class="mp-menu">
+        <div class="mp-menu-item" onclick="openEditModal('notif')">
+          <div class="mp-menu-icon" style="background:var(--sp)">🔔</div>
+          <div class="mp-menu-name">알림 설정</div>
+          <div class="mp-menu-meta">보통</div>
+          <div class="mp-menu-arrow">›</div>
+        </div>
+        <div class="mp-menu-item" onclick="openEditModal('health')">
+          <div class="mp-menu-icon" style="background:#fff0f0">📱</div>
+          <div class="mp-menu-name">헬스 앱 연동</div>
+          <div class="mp-menu-meta">Apple Health ✓</div>
+          <div class="mp-menu-arrow">›</div>
+        </div>
+        <div class="mp-menu-item">
+          <div class="mp-menu-icon" style="background:#fff8e8">🔒</div>
+          <div class="mp-menu-name">개인정보 · 데이터</div>
+          <div class="mp-menu-arrow">›</div>
+        </div>
+      </div>
+
+      <div class="mp-section-lbl">기타</div>
+      <div class="mp-menu">
+        <div class="mp-menu-item">
+          <div class="mp-menu-icon" style="background:#f0f0f0">💬</div>
+          <div class="mp-menu-name">고객 지원 · FAQ</div>
+          <div class="mp-menu-arrow">›</div>
+        </div>
+        <div class="mp-menu-item">
+          <div class="mp-menu-icon" style="background:#f0f0f0">ℹ️</div>
+          <div class="mp-menu-name">앱 정보</div>
+          <div class="mp-menu-meta">v0.2.0</div>
+          <div class="mp-menu-arrow">›</div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /screen-content -->
+  <nav class="bottom-nav">
+    <div class="bn-item" onclick="bottomNav('home')"><div class="bn-icon">🏠</div><div class="bn-label">홈</div></div>
+    <div class="bn-item" onclick="bottomNav('badges')"><div class="bn-icon">🏅</div><div class="bn-label">뱃지</div></div>
+    <div class="bn-item" onclick="bottomNav('community')"><div class="bn-icon">👥</div><div class="bn-label">커뮤니티</div></div>
+    <div class="bn-item active" onclick="bottomNav('mypage')"><div class="bn-icon">👤</div><div class="bn-label">마이페이지</div></div>
+  </nav>
+
+    <!-- Edit: Profile -->
+    <div class="mp-modal" id="edit-profile-modal" onclick="if(event.target===this)closeEditModal('edit-profile-modal')">
+      <div class="mp-sheet">
+        <div class="mp-sheet-handle"></div>
+        <div class="mp-sheet-title">👤 프로필 수정</div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+          <div class="mp-sheet-field" style="display:flex;flex-direction:column;gap:4px"><label style="font-size:11px;color:var(--text2);font-weight:600">이름</label><input type="text" value="송수빈" style="border:1.5px solid var(--border);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--text);outline:none;font-family:'Noto Sans KR',sans-serif;background:#fff;width:100%"></div>
+          <div class="mp-sheet-field" style="display:flex;flex-direction:column;gap:4px"><label style="font-size:11px;color:var(--text2);font-weight:600">나이</label><input type="number" value="27" style="border:1.5px solid var(--border);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--text);outline:none;font-family:'Noto Sans KR',sans-serif;background:#fff;width:100%"></div>
+        </div>
+        <div class="mp-sheet-actions">
+          <button class="mp-sheet-cancel" onclick="closeEditModal('edit-profile-modal')">취소</button>
+          <button class="mp-sheet-save" onclick="closeEditModal('edit-profile-modal')">저장하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit: Level -->
+    <div class="mp-modal" id="edit-level-modal" onclick="if(event.target===this)closeEditModal('edit-level-modal')">
+      <div class="mp-sheet">
+        <div class="mp-sheet-handle"></div>
+        <div class="mp-sheet-title">💪 운동 숙련도 수정</div>
+        <div class="mp-sheet-sub">현재 운동 수준을 선택해주세요</div>
+        <div class="edit-lv-card" onclick="selectEditLv(this)"><span style="font-size:20px">🌱</span><div><div style="font-size:13px;font-weight:700;color:var(--text)">입문자</div><div style="font-size:11px;color:var(--text2)">운동 3개월 미만</div></div></div>
+        <div class="edit-lv-card sel" onclick="selectEditLv(this)"><span style="font-size:20px">🏃</span><div><div style="font-size:13px;font-weight:700;color:var(--text)">초보자</div><div style="font-size:11px;color:var(--text2)">3개월–1년</div></div></div>
+        <div class="edit-lv-card" onclick="selectEditLv(this)"><span style="font-size:20px">🏋️</span><div><div style="font-size:13px;font-weight:700;color:var(--text)">중급자</div><div style="font-size:11px;color:var(--text2)">1–3년</div></div></div>
+        <div class="edit-lv-card" onclick="selectEditLv(this)"><span style="font-size:20px">🔥</span><div><div style="font-size:13px;font-weight:700;color:var(--text)">숙련자</div><div style="font-size:11px;color:var(--text2)">3년 이상</div></div></div>
+        <div class="mp-sheet-actions">
+          <button class="mp-sheet-cancel" onclick="closeEditModal('edit-level-modal')">취소</button>
+          <button class="mp-sheet-save" onclick="closeEditModal('edit-level-modal')">저장하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit: Routine -->
+    <div class="mp-modal" id="edit-routine-modal" onclick="if(event.target===this)closeEditModal('edit-routine-modal')">
+      <div class="mp-sheet">
+        <div class="mp-sheet-handle"></div>
+        <div class="mp-sheet-title">📅 운동 루틴 수정</div>
+        <div class="mp-sheet-sub">요일별 운동 부위를 선택하세요</div>
+        <div class="routine-builder" style="margin-bottom:12px">
+          <div class="rt-accord">
+            <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+              <div class="day-chip sel" onclick="event.stopPropagation();this.classList.toggle('sel')">월</div>
+              <div class="rt-accord-lbl">가슴</div><span class="rt-accord-arr">▾</span>
+            </div>
+            <div class="rt-accord-body">
+              <div class="mchip sel" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+            </div>
+          </div>
+          <div class="rt-accord">
+            <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+              <div class="day-chip" onclick="event.stopPropagation();this.classList.toggle('sel')">화</div>
+              <div class="rt-accord-lbl">운동 선택...</div><span class="rt-accord-arr">▾</span>
+            </div>
+            <div class="rt-accord-body">
+              <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+            </div>
+          </div>
+          <div class="rt-accord">
+            <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+              <div class="day-chip sel" onclick="event.stopPropagation();this.classList.toggle('sel')">수</div>
+              <div class="rt-accord-lbl">등</div><span class="rt-accord-arr">▾</span>
+            </div>
+            <div class="rt-accord-body">
+              <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip sel" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+            </div>
+          </div>
+          <div class="rt-accord">
+            <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+              <div class="day-chip" onclick="event.stopPropagation();this.classList.toggle('sel')">목</div>
+              <div class="rt-accord-lbl">운동 선택...</div><span class="rt-accord-arr">▾</span>
+            </div>
+            <div class="rt-accord-body">
+              <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+            </div>
+          </div>
+          <div class="rt-accord">
+            <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+              <div class="day-chip sel" onclick="event.stopPropagation();this.classList.toggle('sel')">금</div>
+              <div class="rt-accord-lbl">하체</div><span class="rt-accord-arr">▾</span>
+            </div>
+            <div class="rt-accord-body">
+              <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip sel" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+            </div>
+          </div>
+          <div class="rt-accord">
+            <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+              <div class="day-chip" onclick="event.stopPropagation();this.classList.toggle('sel')">토</div>
+              <div class="rt-accord-lbl">운동 선택...</div><span class="rt-accord-arr">▾</span>
+            </div>
+            <div class="rt-accord-body">
+              <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+            </div>
+          </div>
+          <div class="rt-accord">
+            <div class="rt-accord-hdr" onclick="toggleRtAccord(this)">
+              <div class="day-chip" onclick="event.stopPropagation();this.classList.toggle('sel')">일</div>
+              <div class="rt-accord-lbl">운동 선택...</div><span class="rt-accord-arr">▾</span>
+            </div>
+            <div class="rt-accord-body">
+              <div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">가슴</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">어깨</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">팔</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">등</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">하체</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">전신</div><div class="mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">러닝머신</div><div class="rest-mchip" onclick="this.classList.toggle('sel');rtLblUpdate(this)">휴식</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:var(--text2);margin:4px 0 6px">⏱ 운동 시간</div>
+        <div class="dial-card" style="margin-bottom:12px">
+          <div class="dial-top-row">
+            <div class="dial-time-cell">
+              <div class="dial-cell-lbl">🏁 시작</div>
+              <div class="dial-cell-val" id="wo-start-mp">오후 7:00</div>
+            </div>
+            <div class="dial-time-cell">
+              <div class="dial-cell-lbl">🏁 종료</div>
+              <div class="dial-cell-val" id="wo-end-mp">오후 8:00</div>
+            </div>
+          </div>
+          <div class="dial-canvas-wrap">
+            <canvas id="wo-canvas-mp" width="200" height="200" style="touch-action:none;cursor:pointer"></canvas>
+            <div class="dial-center-info">
+              <div class="dial-dur" id="wo-dur-mp">1시간</div>
+              <div class="dial-dur-sub">운동 시간</div>
+            </div>
+          </div>
+        </div>
+        <div class="mp-sheet-actions">
+          <button class="mp-sheet-cancel" onclick="closeEditModal('edit-routine-modal')">취소</button>
+          <button class="mp-sheet-save" onclick="closeEditModal('edit-routine-modal')">저장하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit: Sleep -->
+    <div class="mp-modal" id="edit-sleep-modal" onclick="if(event.target===this)closeEditModal('edit-sleep-modal')">
+      <div class="mp-sheet">
+        <div class="mp-sheet-handle"></div>
+        <div class="mp-sheet-title">🌙 수면 목표 수정</div>
+        <div class="dial-card" style="margin-bottom:12px">
+          <div class="dial-top-row">
+            <div class="dial-time-cell">
+              <div class="dial-cell-lbl">🛏️ 취침</div>
+              <div class="dial-cell-val" id="bed-time-mp">오후 10:30</div>
+              <div class="dial-cell-sub">오늘 밤</div>
+            </div>
+            <div class="dial-time-cell">
+              <div class="dial-cell-lbl">⏰ 기상</div>
+              <div class="dial-cell-val" id="wake-time-mp">오전 7:00</div>
+              <div class="dial-cell-sub">내일</div>
+            </div>
+          </div>
+          <div class="dial-canvas-wrap">
+            <canvas id="sleep-canvas-mp" width="200" height="200" style="touch-action:none;cursor:pointer"></canvas>
+            <div class="dial-center-info">
+              <div class="dial-dur" id="sleep-dur-mp">8시간 30분</div>
+              <div class="dial-dur-sub">수면 시간</div>
+            </div>
+          </div>
+        </div>
+        <div class="mp-sheet-actions">
+          <button class="mp-sheet-cancel" onclick="closeEditModal('edit-sleep-modal')">취소</button>
+          <button class="mp-sheet-save" onclick="closeEditModal('edit-sleep-modal')">저장하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inbody update bottom sheet -->
+    <div class="mp-modal" id="inbody-modal" onclick="if(event.target===this)closeInbodyModal()">
+      <div class="mp-sheet" style="padding:14px 16px 16px">
+        <div class="mp-sheet-handle"></div>
+        <div class="mp-sheet-title" style="font-size:14px;margin-bottom:2px">⚖️ 인바디 수치 업데이트</div>
+        <div class="mp-sheet-sub" style="font-size:10px;margin-bottom:10px">최근 잰 수치를 입력해주세요</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px">
+          <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:var(--text2);font-weight:600">⚖️ 체중 (kg)</label><input type="number" placeholder="62.4" step="0.1" style="border:1.5px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px;color:var(--text);outline:none;background:#fff;width:100%"></div>
+          <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:var(--text2);font-weight:600">💪 골격근량 (kg)</label><input type="number" placeholder="28.1" step="0.1" style="border:1.5px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px;color:var(--text);outline:none;background:#fff;width:100%"></div>
+          <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:var(--text2);font-weight:600">📉 체지방률 (%)</label><input type="number" placeholder="22.5" step="0.1" style="border:1.5px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px;color:var(--text);outline:none;background:#fff;width:100%"></div>
+          <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:var(--text2);font-weight:600">💧 체수분 (L)</label><input type="number" placeholder="36.8" step="0.1" style="border:1.5px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px;color:var(--text);outline:none;background:#fff;width:100%"></div>
+          <div style="grid-column:span 2;display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:var(--text2);font-weight:600">🩻 측정 일자</label><input type="date" value="2026-05-08" style="border:1.5px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px;color:var(--text);outline:none;background:#fff;width:100%"></div>
+        </div>
+        <div class="mp-sheet-actions">
+          <button class="mp-sheet-cancel" onclick="closeInbodyModal()">취소</button>
+          <button class="mp-sheet-save" onclick="closeInbodyModal()">💜 저장하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit: Notification Settings -->
+    <div class="mp-modal" id="edit-notif-modal" onclick="if(event.target===this)closeEditModal('edit-notif-modal')">
+      <div class="mp-sheet">
+        <div class="mp-sheet-handle"></div>
+        <div class="mp-sheet-title">🔔 알림 설정</div>
+        <div class="mp-sheet-sub" style="margin-bottom:10px">어떤 알림을 받을지 선택해요</div>
+        <div class="ns-card" style="margin-bottom:8px">
+          <div class="ns-sec-lbl">알림 빈도</div>
+          <div class="ns-row">
+            <div class="ns-left"><div class="ns-icon">📣</div><div><div class="ns-name">전체 알림 빈도</div><div class="ns-desc">AI 메시지 양 조절</div></div></div>
+            <select class="freq-sel"><option>조용하게</option><option selected>보통</option><option>적극적으로</option></select>
+          </div>
+        </div>
+        <div class="ns-card" style="margin-bottom:12px">
+          <div class="ns-sec-lbl">알림 종류</div>
+          <div class="ns-row"><div class="ns-left"><div class="ns-icon">🏋️</div><div><div class="ns-name">운동 시작 알림</div><div class="ns-desc">예정 30분 전</div></div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+          <div class="ns-row"><div class="ns-left"><div class="ns-icon">🍱</div><div><div class="ns-name">식사 타이밍 알림</div><div class="ns-desc">운동 2시간 전</div></div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+          <div class="ns-row"><div class="ns-left"><div class="ns-icon">😴</div><div><div class="ns-name">수면 컨디션 알림</div><div class="ns-desc">수면 부족 시 강도 조절</div></div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+          <div class="ns-row"><div class="ns-left"><div class="ns-icon">☀️</div><div><div class="ns-name">날씨 맞춤 알림</div><div class="ns-desc">의상·장소 추천</div></div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+          <div class="ns-row"><div class="ns-left"><div class="ns-icon">🛁</div><div><div class="ns-name">운동 후 회복 알림</div><div class="ns-desc">스트레칭·수분·반신욕</div></div></div><label class="toggle"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+          <div class="ns-row"><div class="ns-left"><div class="ns-icon">🌙</div><div><div class="ns-name">취침 준비 알림</div><div class="ns-desc">수면 목표 30분 전</div></div></div><label class="toggle"><input type="checkbox"><div class="toggle-track"></div><div class="toggle-thumb"></div></label></div>
+        </div>
+        <div class="mp-sheet-actions">
+          <button class="mp-sheet-cancel" onclick="closeEditModal('edit-notif-modal')">닫기</button>
+          <button class="mp-sheet-save" onclick="closeEditModal('edit-notif-modal')">저장하기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit: Health App Connection -->
+    <div class="mp-modal" id="edit-health-modal" onclick="if(event.target===this)closeEditModal('edit-health-modal')">
+      <div class="mp-sheet">
+        <div class="mp-sheet-handle"></div>
+        <div class="mp-sheet-title">📱 헬스 앱 연동</div>
+        <div class="mp-sheet-sub" style="margin-bottom:10px">연동할 앱을 선택하거나 직접 입력해요</div>
+        <div class="hc-card connected" style="margin-bottom:8px">
+          <div class="hc-row">
+            <div class="hc-icon" style="background:#f5f5f7;overflow:hidden"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" fill="#1d1d1f"/></svg></div>
+            <div style="flex:1"><div class="hc-name">Apple Health</div><div class="hc-desc">수면 · 심박 · 활동량 · 체중</div></div>
+            <div class="hc-status hc-done">연동됨 ✓</div>
+          </div>
+        </div>
+        <div class="hc-card" style="margin-bottom:8px">
+          <div class="hc-row">
+            <div class="hc-icon" style="background:#1428A0;overflow:hidden"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22"><ellipse cx="12" cy="12" rx="9.5" ry="6.5" fill="none" stroke="white" stroke-width="1.3"/><text x="12" y="14.5" font-family="Arial,sans-serif" font-size="4.2" font-weight="bold" fill="white" text-anchor="middle" letter-spacing=".5">SAMSUNG</text></svg></div>
+            <div style="flex:1"><div class="hc-name">Samsung Health</div><div class="hc-desc">수면 · 활동량 · 체성분 · 스트레스</div></div>
+            <div class="hc-status hc-connect">선택</div>
+          </div>
+        </div>
+        <div style="text-align:center;font-size:11px;color:var(--text3);margin:4px 0">— 또는 직접 입력 —</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0 12px">
+          <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:var(--text2);font-weight:600">체중 (kg)</label><input type="number" placeholder="62.4" style="border:1.5px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px;outline:none;background:#fff;width:100%"></div>
+          <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:var(--text2);font-weight:600">키 (cm)</label><input type="number" placeholder="165" style="border:1.5px solid var(--border);border-radius:9px;padding:8px 10px;font-size:13px;outline:none;background:#fff;width:100%"></div>
+        </div>
+        <div class="mp-sheet-actions">
+          <button class="mp-sheet-cancel" onclick="closeEditModal('edit-health-modal')">닫기</button>
+          <button class="mp-sheet-save" onclick="closeEditModal('edit-health-modal')">저장하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /phone-screen -->
+</div><!-- /phone-shell -->
+
+<!-- SIDE PANEL REMOVED -->
+<div class="side-panel" style="display:none">
+
+  <div id="side-onboarding">
+    <div class="side-title">온보딩 플로우</div>
+    <div class="side-desc">헬스케어 앱 연동으로 수동 입력 최소화. 요일별 루틴과 수면 목표를 한번에 설정해요.</div>
+    <div class="flow-steps">
+      <div class="flow-step active-step" onclick="goto('screen-splash')"><div class="step-line"><div class="step-dot">🐣</div><div class="step-connector"></div></div><div><div class="step-name">스플래시</div><div class="step-detail">브랜드 첫 인상</div></div></div>
+      <div class="flow-step" onclick="goto('screen-onb1')"><div class="step-line"><div class="step-dot">📱</div><div class="step-connector"></div></div><div><div class="step-name">헬스케어 연동</div><div class="step-detail">Apple Health / Samsung Health<br>인바디(Android) / 직접 입력</div></div></div>
+      <div class="flow-step" onclick="goto('screen-onb2')"><div class="step-line"><div class="step-dot">💪</div><div class="step-connector"></div></div><div><div class="step-name">숙련도 선택</div><div class="step-detail">입문자 / 초보자 / 중급자 / 숙련자</div></div></div>
+      <div class="flow-step" onclick="goto('screen-onb3a')"><div class="step-line"><div class="step-dot">📅</div><div class="step-connector"></div></div><div><div class="step-name">루틴 & 수면 설정</div><div class="step-detail">요일별 운동 선택 + 취침·기상 목표</div></div></div>
+      <div class="flow-step" onclick="goto('screen-onb4')"><div class="step-line"><div class="step-dot">🔔</div><div class="step-connector"></div></div><div><div class="step-name">알림 설정</div><div class="step-detail">종류별 on/off · 빈도 · 방해 금지 시간</div></div></div>
+      <div class="flow-step" onclick="goto('screen-char')"><div class="step-line"><div class="step-dot">✨</div></div><div><div class="step-name">캐릭터 생성</div><div class="step-detail">데이터 기반 초기 캐릭터 지급</div></div></div>
+    </div>
+    <div class="screen-nav">
+      <div style="font-size:11px;color:var(--text3);width:100%;margin-bottom:3px">화면 이동</div>
+      <button class="screen-btn active" onclick="markNav(this);goto('screen-splash')">스플래시</button>
+      <button class="screen-btn" onclick="markNav(this);goto('screen-onb1')">헬스 연동</button>
+      <button class="screen-btn" onclick="markNav(this);goto('screen-onb2')">숙련도</button>
+      <button class="screen-btn" onclick="markNav(this);goto('screen-onb3a')">루틴 설정</button>
+      <button class="screen-btn" onclick="markNav(this);goto('screen-onb4')">알림 설정</button>
+      <button class="screen-btn" onclick="markNav(this);goto('screen-char')">캐릭터 생성</button>
+    </div>
+  </div>
+
+  <div id="side-pre" style="display:none">
+    <div class="side-title">운동 전 케어</div>
+    <div class="side-desc">Gemini가 수면·걸음수·날씨·식사 시간을 종합해 운동 1–2시간 전 맞춤 케어 가이드를 제공해요.</div>
+    <div class="flow-steps">
+      <div class="flow-step active-step" onclick="goto('screen-home')"><div class="step-line"><div class="step-dot">🏠</div><div class="step-connector"></div></div><div><div class="step-name">홈 화면</div><div class="step-detail">오늘 플랜 + 운동 전 케어 배너</div></div></div>
+      <div class="flow-step" onclick="goto('screen-pre')"><div class="step-line"><div class="step-dot">⚡</div></div><div><div class="step-name">운동 전 케어</div><div class="step-detail">컨디션 분석 + 식사·스트레칭·수분 가이드</div></div></div>
+    </div>
+    <div class="info-box" style="background:var(--sp);border:1px solid #cac6f8">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px">⚡ Gemini 컨텍스트</div>
+      <div style="font-size:12px;color:var(--text2)">😴 수면 → 강도 조절 메시지<br>☀️ 날씨 → 의상·실내외 추천<br>🍱 운동 시간 역산 → 식사 타이밍<br>💪 숙련도 → 워밍업 루틴 수준<br>📊 인바디 → 체력 소진 예측</div>
+    </div>
+    <div class="screen-nav">
+      <button class="screen-btn active" onclick="markNav(this);goto('screen-home')">홈</button>
+      <button class="screen-btn" onclick="markNav(this);goto('screen-pre')">운동 전 케어</button>
+    </div>
+  </div>
+
+  <div id="side-workout" style="display:none">
+    <div class="side-title">운동 중</div>
+    <div class="side-desc">방해 최소화 원칙. 핵심 수치만 크게 표기하고, 캐릭터가 함께 움직여요. 그래프·복잡한 UI 없이 심플하게.</div>
+    <div class="flow-steps">
+      <div class="flow-step active-step" onclick="goto('screen-workout')"><div class="step-line"><div class="step-dot">🏋️</div></div><div><div class="step-name">운동 대시보드</div><div class="step-detail">시간 · 세트 · 칼로리 + 캐릭터 애니메이션</div></div></div>
+    </div>
+    <div class="info-box" style="background:#1a1a2e;border:1px solid #2a2a3e">
+      <div style="font-size:12px;font-weight:700;color:#a78bfa;margin-bottom:6px">🎮 UX 원칙</div>
+      <div style="font-size:12px;color:#8888aa">🐣 캐릭터가 내 페이스에 맞춰 반응<br>📊 심박 그래프 등 복잡한 UI 배제<br>✅ 세트 완료 시 시각 피드백만<br>⏹ 종료 → 운동 후 케어로 자동 이동</div>
+    </div>
+    <div class="screen-nav">
+      <button class="screen-btn active" onclick="markNav(this);goto('screen-workout')">운동 대시보드</button>
+    </div>
+  </div>
+
+  <div id="side-post" style="display:none">
+    <div class="side-title">운동 후 케어</div>
+    <div class="side-desc">운동의 완성은 회복! Gemini가 강도·피로도를 분석해 회복 루틴을 제안하고, 내일 알림 로직에 자동 반영돼요.</div>
+    <div class="flow-steps">
+      <div class="flow-step active-step" onclick="goto('screen-post')"><div class="step-line"><div class="step-dot">📋</div><div class="step-connector"></div></div><div><div class="step-name">세션 리포트</div><div class="step-detail">시간 · 칼로리 · 달성률 요약</div></div></div>
+      <div class="flow-step" onclick="goto('screen-post')"><div class="step-line"><div class="step-dot">🎙️</div><div class="step-connector"></div></div><div><div class="step-name">부위 음성 입력</div><div class="step-detail">초보↓: 오늘 운동 부위 음성 기록</div></div></div>
+      <div class="flow-step" onclick="goto('screen-post')"><div class="step-line"><div class="step-dot">🤖</div><div class="step-connector"></div></div><div><div class="step-name">AI 애프터케어</div><div class="step-detail">영양·스트레칭·목욕·수면 가이드</div></div></div>
+      <div class="flow-step" onclick="goto('screen-post')"><div class="step-line"><div class="step-dot">🏅</div></div><div><div class="step-name">뱃지 & 성장</div><div class="step-detail">달성 보상 + 캐릭터 경험치 반영</div></div></div>
+    </div>
+    <div class="info-box" style="background:var(--sa);border:1px solid #f5d060">
+      <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:6px">🔄 데이터 선순환</div>
+      <div style="font-size:12px;color:var(--text2)">오늘 강도 + 피로도 + 부위<br>→ 내일 스마트 알림 로직 자동 반영<br>→ 회복 부족 시 내일 강도 자동 낮춤</div>
+    </div>
+    <div class="screen-nav">
+      <button class="screen-btn active" onclick="markNav(this);goto('screen-post')">운동 후 리포트</button>
+    </div>
+  </div>
+
+  <div id="side-badges" style="display:none">
+    <div class="side-title">뱃지 & 도전 과제</div>
+    <div class="side-desc">경쟁이 아닌 '나만의 성장 기록'. 인바디 개선·연속 수면·궂은 날씨 극복 같은 활동에 따라 유니크 뱃지를 받고, 캐릭터를 꾸밀 수 있어요.</div>
+    <div class="flow-steps">
+      <div class="flow-step active-step" onclick="goto('screen-badges')"><div class="step-line"><div class="step-dot">🏅</div><div class="step-connector"></div></div><div><div class="step-name">뱃지 컬렉션</div><div class="step-detail">획득 12 / 진행 4 / 전체 36</div></div></div>
+      <div class="flow-step" onclick="goto('screen-badges')"><div class="step-line"><div class="step-dot">🎀</div><div class="step-connector"></div></div><div><div class="step-name">캐릭터 꾸미기</div><div class="step-detail">획득 뱃지를 캐릭터 주변 장식으로 활용</div></div></div>
+      <div class="flow-step" onclick="goto('screen-badges')"><div class="step-line"><div class="step-dot">🔒</div></div><div><div class="step-name">도전 과제</div><div class="step-detail">진행 중인 챌린지 진행률 표시</div></div></div>
+    </div>
+    <div class="info-box" style="background:var(--sa);border:1px solid #f5d060">
+      <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:6px">🏆 뱃지 카테고리</div>
+      <div style="font-size:12px;color:var(--text2)">🦵 활동 — 첫 운동·연속·볼륨<br>🌙 회복·수면 — 7일 숙면·아침형<br>🌧️ 날씨 극복 — 우중 러너·한겨울<br>📉 인바디 — 체지방·근육량 변화<br>🤝 Co-op — 친구와 동시 달성 (특수)</div>
+    </div>
+    <div class="screen-nav">
+      <button class="screen-btn active" onclick="markNav(this);goto('screen-badges')">뱃지 컬렉션</button>
+    </div>
+  </div>
+
+  <div id="side-community" style="display:none">
+    <div class="side-title">커뮤니티 (비경쟁)</div>
+    <div class="side-desc">랭킹·순위는 완전 배제. 친구는 비교가 아닌 '연대'의 대상이에요. 가벼운 응원 찌르기와 함께 달성하는 Co-op 뱃지로 동기부여를 만들어요.</div>
+    <div class="flow-steps">
+      <div class="flow-step active-step" onclick="goto('screen-community')"><div class="step-line"><div class="step-dot">💌</div><div class="step-connector"></div></div><div><div class="step-name">응원 찌르기</div><div class="step-detail">받은 응원 + 친구에게 가볍게 콕!</div></div></div>
+      <div class="flow-step" onclick="goto('screen-community')"><div class="step-line"><div class="step-dot">✨</div><div class="step-connector"></div></div><div><div class="step-name">Co-op 도전</div><div class="step-detail">'함께 일주일' · '동시간 운동' 특수 뱃지</div></div></div>
+      <div class="flow-step" onclick="goto('screen-community')"><div class="step-line"><div class="step-dot">🐾</div></div><div><div class="step-name">친구 목록</div><div class="step-detail">실시간 운동 상태 공유 (수치 비교 X)</div></div></div>
+    </div>
+    <div class="info-box" style="background:#fce4ec;border:1px solid #f8bbd0">
+      <div style="font-size:12px;font-weight:700;color:#c2185b;margin-bottom:6px">💜 비경쟁 원칙</div>
+      <div style="font-size:12px;color:var(--text2)">🚫 랭킹·점수 비교 — 완전 배제<br>💌 응원 찌르기 — 부담 없는 인터랙션<br>🤝 Co-op 뱃지 — 함께 달성 시 특수 보상<br>👀 활동 상태만 공유 — 수치는 비공개</div>
+    </div>
+    <div class="screen-nav">
+      <button class="screen-btn active" onclick="markNav(this);goto('screen-community')">커뮤니티</button>
+    </div>
+  </div>
+
+  <div id="side-mypage" style="display:none">
+    <div class="side-title">마이페이지 · 환경 설정</div>
+    <div class="side-desc">기본 정보 확인과 인바디 자발적 업데이트가 핵심. 강제 알림 없이 사용자가 원할 때(주 1회·월 1회) 직접 기록하도록 유도해요.</div>
+    <div class="flow-steps">
+      <div class="flow-step active-step" onclick="goto('screen-mypage')"><div class="step-line"><div class="step-dot">👤</div><div class="step-connector"></div></div><div><div class="step-name">프로필 헤더</div><div class="step-detail">캐릭터 · 레벨 · 운동 일수 · 뱃지</div></div></div>
+      <div class="flow-step" onclick="openInbodyModal()"><div class="step-line"><div class="step-dot">⚖️</div><div class="step-connector"></div></div><div><div class="step-name">인바디 업데이트</div><div class="step-detail">체중·골격근·체지방 자발적 입력 (시트)</div></div></div>
+      <div class="flow-step" onclick="goto('screen-mypage')"><div class="step-line"><div class="step-dot">⚙️</div></div><div><div class="step-name">환경 설정</div><div class="step-detail">알림 · 헬스 연동 · 음성 · 개인정보</div></div></div>
+    </div>
+    <div class="info-box" style="background:var(--sp);border:1px solid #cac6f8">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px">⚖️ 인바디 데이터 정책</div>
+      <div style="font-size:12px;color:var(--text2)">📵 강제 알림 없음 — 입력 부담 차단<br>📅 권장 주기 — 주 1회 / 월 1회 안내<br>📈 변화량 자동 계산 — 전 회차 대비<br>🤖 Gemini 알림 로직에 자동 반영</div>
+    </div>
+    <div class="screen-nav">
+      <button class="screen-btn active" onclick="markNav(this);goto('screen-mypage')">마이페이지</button>
+      <button class="screen-btn" onclick="markNav(this);openInbodyModal()">인바디 입력</button>
+    </div>
+  </div>
+
+  <div id="side-push" style="display:none">
+    <div class="side-title">스마트 알림</div>
+    <div class="side-desc">Gemini가 수면·날씨·식사 데이터를 종합해 자연스러운 알림을 생성해요. 캐릭터 표정도 컨디션에 따라 바뀌어요.</div>
+    <div class="flow-steps">
+      <div class="flow-step active-step" onclick="goto('screen-push')"><div class="step-line"><div class="step-dot">🔔</div></div><div><div class="step-name">잠금화면 푸시</div><div class="step-detail">운동 전 케어 · 식사 타이밍 · 날씨 맞춤</div></div></div>
+    </div>
+    <div class="info-box" style="background:var(--sp);border:1px solid #cac6f8">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px">📣 알림 유형</div>
+      <div style="font-size:12px;color:var(--text2)">🏋️ 운동 시작 — 예정 30분 전<br>🍱 식사 타이밍 — 운동 2시간 전<br>😴 수면 컨디션 — 부족 시 강도 조절<br>☀️ 날씨 맞춤 — 의상·장소 추천<br>🛁 운동 후 회복 — 케어 루틴 안내<br>🌙 취침 준비 — 수면 목표 전 알림</div>
+    </div>
+    <div class="screen-nav">
+      <button class="screen-btn active" onclick="markNav(this);goto('screen-push')">알림 화면</button>
+    </div>
+  </div>
+
+</div><!-- /side-panel -->
+</div><!-- /flow-wrapper -->
+
+<script>
+let curLv = -1;
+const stageFirstScreen = {onboarding:'screen-splash',pre:'screen-home',workout:'screen-workout',post:'screen-post',push:'screen-push',badges:'screen-badges',community:'screen-community',mypage:'screen-mypage'};
+const stages = ['onboarding','pre','workout','post','push','badges','community','mypage'];
+
+function goto(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el=document.getElementById(id); if(el) el.classList.add('active');
+}
+function markNav(btn){
+  const p=btn.closest('.screen-nav'); if(!p) return;
+  p.querySelectorAll('.screen-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function setStage(stage){
+  document.querySelectorAll('.stage-tab').forEach((t,i)=>t.classList.toggle('active',stages[i]===stage));
+  stages.forEach(s=>{
+    const el=document.getElementById('side-'+s); if(el) el.style.display=s===stage?'':'none';
+  });
+  goto(stageFirstScreen[stage]);
+}
+function selectLv(idx){
+  curLv=idx;
+  [0,1,2,3].forEach(i=>document.getElementById('lv'+i).classList.toggle('sel',i===idx));
+  const btn=document.getElementById('lv-next-btn');
+  if(btn){btn.style.opacity='1';btn.style.pointerEvents='auto';}
+}
+function nextAfterLv(){
+  if(curLv<0){alert('운동 숙련도를 선택해 주세요!');return;}
+  goto('screen-onb3a');
+}
+function nextFromOnb1(){
+  const anyConnected=document.querySelector('.hc-card.connected');
+  const w=document.querySelector('#screen-onb1 input[placeholder="체중 (kg)"]');
+  const h=document.querySelector('#screen-onb1 input[placeholder="키 (cm)"]');
+  const manualOk=w&&h&&w.value.trim()&&h.value.trim();
+  if(!anyConnected&&!manualOk){alert('헬스케어 앱을 선택하거나 직접 입력해 주세요!');return;}
+  goto('screen-onb2');
+}
+function nextFromOnb3(){
+  goto('screen-onb4');
+}
+document.getElementById('btn-onb4-prev').onclick=function(){
+  goto('screen-onb3a');
+};
+function selectHealth(onId, onBtnId, offId, offBtnId){
+  const onCard=document.getElementById(onId);
+  const offCard=document.getElementById(offId);
+  onCard.classList.add('connected');
+  const onBtn=document.getElementById(onBtnId);
+  onBtn.className='hc-status hc-done'; onBtn.textContent='선택됨 ✓';
+  offCard.classList.remove('connected');
+  const offBtn=document.getElementById(offBtnId);
+  offBtn.className='hc-status hc-connect'; offBtn.textContent='선택';
+  updateOnb1NextBtn();
+}
+/* Drum scroll snap */
+function drumSnap(el){
+  const itemH=33;
+  const idx=Math.round(el.scrollTop/itemH);
+  el.querySelectorAll('.drum-item').forEach((it,i)=>it.classList.toggle('active',i===idx));
+}
+/* Friend invite toggle */
+function toggleInviteForm(btn){
+  const form=document.getElementById('cm-invite-form');
+  if(!form)return;
+  const vis=form.style.display==='none'||!form.style.display;
+  form.style.display=vis?'block':'none';
+  btn.innerHTML=vis?'✕ 닫기':'<span style="font-size:14px">＋</span> 친구 초대하기';
+}
+function sendFriendInvite(){
+  const inp=document.getElementById('invite-id-input');
+  if(!inp||!inp.value.trim()){inp&&inp.focus();return;}
+  const name=inp.value.trim();
+  const msgEl=document.getElementById('cm-modal-msg');
+  if(msgEl) msgEl.textContent=name+'님을 추가할까요?';
+  const modal=document.getElementById('cm-invite-modal');
+  if(modal) modal.style.display='flex';
+}
+function closeFriendModal(){
+  const modal=document.getElementById('cm-invite-modal');
+  if(modal) modal.style.display='none';
+}
+/* Co-op challenge create */
+let coopCount=1;
+function createCoopChallenge(){
+  const sel=[...document.querySelectorAll('.cm-fc-chip.sel')].map(c=>c.textContent);
+  if(!sel.length){alert('함께할 친구를 선택해 주세요!');return;}
+  const list=document.getElementById('coop-list');
+  if(!list)return;
+  const el=document.createElement('div');
+  el.className='cm-coop-target';
+  el.style.cssText='margin-top:0';
+  el.innerHTML=`<div class="cm-coop-icon">⭐</div><div class="cm-coop-info"><div class="cm-coop-name">새 Co-op 도전 #${coopCount++}</div><div class="cm-coop-desc">${sel.join(', ')}와 함께 주 4회 운동!</div><div class="cm-coop-bar"><div class="cm-coop-fill" style="width:0%;background:var(--accent2)"></div></div></div>`;
+  list.appendChild(el);
+  document.querySelectorAll('.cm-fc-chip').forEach(c=>c.classList.remove('sel'));
+}
+function selectBdCat(el){
+  el.parentNode.querySelectorAll('.bd-cat').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function selectMonthTab(el){
+  el.parentNode.querySelectorAll('.bd-cat').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function selectCmTab(el,panelId){
+  el.parentNode.querySelectorAll('.cm-tab').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  document.querySelectorAll('.cm-panel').forEach(p=>p.classList.remove('active'));
+  const panel=document.getElementById(panelId);
+  if(panel) panel.classList.add('active');
+}
+function toggleRtAccord(hdr){
+  const body=hdr.nextElementSibling;
+  hdr.classList.toggle('open');
+  body.classList.toggle('open');
+}
+function rtLblUpdate(chip){
+  const body=chip.closest('.rt-accord-body');
+  if(!body) return;
+  const lbl=body.previousElementSibling.querySelector('.rt-accord-lbl');
+  const sels=[...body.querySelectorAll('.mchip.sel,.rest-mchip.sel')].map(e=>e.textContent);
+  lbl.textContent=sels.length?sels.slice(0,2).join(', ')+(sels.length>2?' 외 '+(sels.length-2)+'개':''):'운동 선택...';
+}
+function openEditModal(type){
+  const map={profile:'edit-profile-modal',level:'edit-level-modal',routine:'edit-routine-modal',sleep:'edit-sleep-modal',notif:'edit-notif-modal',health:'edit-health-modal'};
+  const el=document.getElementById(map[type]);
+  if(el) el.classList.add('show');
+}
+function closeEditModal(id){
+  const el=document.getElementById(id);
+  if(el) el.classList.remove('show');
+}
+function selectEditLv(card){
+  card.closest('.mp-sheet').querySelectorAll('.edit-lv-card').forEach(c=>c.classList.remove('sel'));
+  card.classList.add('sel');
+}
+function sendPoke(btn){
+  btn.classList.add('sent');
+  btn.innerHTML='✓ 보냄';
+}
+function openInbodyModal(){
+  const el=document.getElementById('inbody-modal');
+  if(el) el.classList.add('show');
+}
+function closeInbodyModal(){
+  document.getElementById('inbody-modal').classList.remove('show');
+}
+function toggleDarkMode(row){
+  const chk=document.getElementById('dark-mode-toggle');
+  const lbl=document.getElementById('dark-mode-label');
+  chk.checked=!chk.checked;
+  document.body.classList.toggle('dark',chk.checked);
+  lbl.textContent=chk.checked?'켜짐':'꺼짐';
+  /* 워크아웃 화면 텍스트 색상 동적 반영 */
+  const wo=document.getElementById('screen-workout');
+  if(wo){
+    const dark=chk.checked;
+    wo.querySelectorAll('[data-wo-text]').forEach(el=>{
+      el.style.color=dark?el.dataset.woDark:el.dataset.woLight;
+    });
+  }
+}
+/* drum item click selection */
+document.addEventListener('click',function(e){
+  const di=e.target.closest('.drum-item');
+  if(!di)return;
+  const scroll=di.closest('.drum-scroll');
+  if(!scroll)return;
+  const items=[...scroll.querySelectorAll('.drum-item')];
+  const idx=items.indexOf(di);
+  scroll.scrollTo({top:idx*33,behavior:'smooth'});
+  items.forEach((it,i)=>it.classList.toggle('active',i===idx));
+});
+
+function cancelFriendAdd(){
+  closeFriendModal();
+  const inp=document.getElementById('invite-id-input');
+  if(inp) inp.value='';
+}
+function confirmFriendAdd(){
+  const inp=document.getElementById('invite-id-input');
+  const res=document.getElementById('invite-result');
+  closeFriendModal();
+  if(res) res.style.display='block';
+  if(inp) inp.value='';
+  setTimeout(()=>{if(res)res.style.display='none';},3000);
+}
+function updateOnb1NextBtn(){
+  const anyConnected=document.querySelector('#screen-onb1 .hc-card.connected');
+  const w=document.querySelector('#screen-onb1 input[placeholder="체중 (kg)"]');
+  const h=document.querySelector('#screen-onb1 input[placeholder="키 (cm)"]');
+  const manualOk=w&&h&&w.value.trim()&&h.value.trim();
+  const btn=document.getElementById('onb1-next-btn');
+  if(btn){
+    const enabled=!!(anyConnected||manualOk);
+    btn.style.opacity=enabled?'1':'0.5';
+    btn.style.pointerEvents=enabled?'auto':'none';
+  }
+}
+
+/* Bottom nav */
+function bottomNav(page){
+  const map={home:{stage:'pre',screen:'screen-home'},badges:{stage:'badges',screen:'screen-badges'},community:{stage:'community',screen:'screen-community'},mypage:{stage:'mypage',screen:'screen-mypage'}};
+  const target=map[page]; if(!target)return;
+  setStage(target.stage); goto(target.screen);
+}
+
+/* Circular time picker */
+class CirclePicker{
+  constructor(opts){
+    this.canvas=document.getElementById(opts.canvasId);
+    if(!this.canvas)return;
+    this.ctx=this.canvas.getContext('2d');
+    this.startId=opts.startId; this.endId=opts.endId; this.durId=opts.durId;
+    this.startLabel=opts.startLabel||'▶'; this.endLabel=opts.endLabel||'■';
+    this.accent=opts.accent||'#1A5CCC';
+    this.startHour=opts.defaultStart||22; this.endHour=opts.defaultEnd||7;
+    this.dragging=null;
+    const W=this.canvas.width; this.cx=W/2; this.cy=W/2;
+    this.R=W*0.38; this.hr=W*0.065;
+    this.canvas.addEventListener('mousedown',e=>this.onDown(e));
+    this.canvas.addEventListener('mousemove',e=>this.onMove(e));
+    this.canvas.addEventListener('mouseup',()=>this.dragging=null);
+    this.canvas.addEventListener('mouseleave',()=>this.dragging=null);
+    this.canvas.addEventListener('touchstart',e=>{e.preventDefault();this.onDown(e);},{passive:false});
+    this.canvas.addEventListener('touchmove',e=>{e.preventDefault();this.onMove(e);},{passive:false});
+    this.canvas.addEventListener('touchend',()=>this.dragging=null);
+    this.draw(); this.update();
+  }
+  hourToAngle(h){return(h/24)*Math.PI*2-Math.PI/2;}
+  angleToHour(a){let h=((a+Math.PI/2)/(Math.PI*2))*24;h=((h%24)+24)%24;return h;}
+  hourToXY(h){const a=this.hourToAngle(h);return{x:this.cx+this.R*Math.cos(a),y:this.cy+this.R*Math.sin(a)};}
+  formatHour(h){const t=Math.round(h*2)/2;const hr=Math.floor(t)%24;const mn=t%1===0.5?'30':'00';const ap=hr<12?'오전':'오후';const dh=hr===0?12:hr>12?hr-12:hr;return ap+' '+dh+':'+mn;}
+  calcDuration(){let d=this.endHour-this.startHour;if(d<0)d+=24;const h=Math.floor(d);const m=Math.round((d-h)*60);if(h===0)return m+'분';if(m===0)return h+'시간';return h+'시간 '+m+'분';}
+  getXY(e){const r=this.canvas.getBoundingClientRect();const cl=e.touches?e.touches[0]:e;return{x:cl.clientX-r.left,y:cl.clientY-r.top};}
+  onDown(e){const{x,y}=this.getXY(e);const ps=this.hourToXY(this.startHour);const pe=this.hourToXY(this.endHour);const ds=Math.hypot(x-ps.x,y-ps.y);const de=Math.hypot(x-pe.x,y-pe.y);if(ds<this.hr*2)this.dragging='start';else if(de<this.hr*2)this.dragging='end';}
+  onMove(e){if(!this.dragging)return;const{x,y}=this.getXY(e);const a=Math.atan2(y-this.cy,x-this.cx);const h=this.angleToHour(a);if(this.dragging==='start')this.startHour=Math.round(h*2)/2;else this.endHour=Math.round(h*2)/2;this.draw();this.update();}
+  draw(){const ctx=this.ctx;const W=this.canvas.width;ctx.clearRect(0,0,W,W);
+    /* bg track */
+    ctx.beginPath();ctx.arc(this.cx,this.cy,this.R,0,Math.PI*2);ctx.strokeStyle='#e0e6f0';ctx.lineWidth=10;ctx.stroke();
+    /* colored arc */
+    let sa=this.hourToAngle(this.startHour);let ea=this.hourToAngle(this.endHour);
+    ctx.beginPath();ctx.arc(this.cx,this.cy,this.R,sa,ea);ctx.strokeStyle=this.accent;ctx.lineWidth=10;ctx.lineCap='round';ctx.stroke();
+    /* hour marks */
+    [0,6,12,18].forEach(h=>{const a=this.hourToAngle(h);const lx=this.cx+(this.R+16)*Math.cos(a);const ly=this.cy+(this.R+16)*Math.sin(a);ctx.font='bold 9px Nunito,sans-serif';ctx.fillStyle='#a0a8b8';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(h===0?'0':String(h),lx,ly);});
+    /* handles */
+    this.drawHandle(this.startHour,this.startLabel);
+    this.drawHandle(this.endHour,this.endLabel);
+  }
+  drawHandle(h,label){const ctx=this.ctx;const{x,y}=this.hourToXY(h);ctx.beginPath();ctx.arc(x,y,this.hr,0,Math.PI*2);ctx.fillStyle='#fff';ctx.shadowBlur=8;ctx.shadowColor='rgba(0,0,0,.18)';ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle=this.accent;ctx.lineWidth=2;ctx.stroke();ctx.font=String(Math.round(this.hr*0.9))+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=this.accent;ctx.fillText(label,x,y);}
+  update(){if(this.startId){const el=document.getElementById(this.startId);if(el)el.textContent=this.formatHour(this.startHour);}if(this.endId){const el=document.getElementById(this.endId);if(el)el.textContent=this.formatHour(this.endHour);}if(this.durId){const el=document.getElementById(this.durId);if(el)el.textContent=this.calcDuration();}}
+}
+
+const pickers={};
+
+/* init drum scroll positions */
+window.addEventListener('load',function(){
+  document.querySelectorAll('.drum-scroll').forEach(scroll=>{
+    const activeIdx=[...scroll.querySelectorAll('.drum-item')].findIndex(it=>it.classList.contains('active'));
+    if(activeIdx>=0) scroll.scrollTop=activeIdx*33;
+  });
+  /* ONB1 next button starts disabled */
+  updateOnb1NextBtn();
+  /* ONB2 next button starts disabled */
+  const lvBtn=document.getElementById('lv-next-btn');
+  if(lvBtn){lvBtn.style.opacity='0.5';lvBtn.style.pointerEvents='none';}
+  /* Init circular pickers */
+  pickers.sleepOnb=new CirclePicker({canvasId:'sleep-canvas-onb',startId:'bed-time-onb',endId:'wake-time-onb',durId:'sleep-dur-onb',startLabel:'🛏',endLabel:'⏰',defaultStart:22.5,defaultEnd:7.0,accent:'#1A5CCC'});
+  pickers.woOnb=new CirclePicker({canvasId:'wo-canvas-onb',startId:'wo-start-onb',endId:'wo-end-onb',durId:'wo-dur-onb',startLabel:'▶',endLabel:'■',defaultStart:19.0,defaultEnd:20.0,accent:'#FF7200'});
+  pickers.sleepMp=new CirclePicker({canvasId:'sleep-canvas-mp',startId:'bed-time-mp',endId:'wake-time-mp',durId:'sleep-dur-mp',startLabel:'🛏',endLabel:'⏰',defaultStart:22.5,defaultEnd:7.0,accent:'#1A5CCC'});
+  pickers.woMp=new CirclePicker({canvasId:'wo-canvas-mp',startId:'wo-start-mp',endId:'wo-end-mp',durId:'wo-dur-mp',startLabel:'▶',endLabel:'■',defaultStart:19.0,defaultEnd:20.0,accent:'#FF7200'});
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Persona Fit — 개발 순서도</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f11;
+    --bg2: #16161a;
+    --bg3: #1d1d23;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8e6f0;
+    --text2: #8e8ca0;
+    --text3: #58566a;
+
+    --coral-bg: #2a1510;
+    --coral-border: #7a3020;
+    --coral-text: #f4a080;
+    --coral-accent: #e85c30;
+
+    --teal-bg: #0a1e18;
+    --teal-border: #1a5040;
+    --teal-text: #60d0a8;
+    --teal-accent: #20a878;
+
+    --purple-bg: #16143a;
+    --purple-border: #3a3490;
+    --purple-text: #b0aaee;
+    --purple-accent: #7870d8;
+
+    --amber-bg: #201408;
+    --amber-border: #6a4010;
+    --amber-text: #e8b060;
+    --amber-accent: #c88020;
+
+    --gray-bg: #18181e;
+    --gray-border: #30303c;
+    --gray-text: #a0a0b0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ─── HEADER ─── */
+  .site-header {
+    padding: 48px 40px 32px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .site-header::before {
+    content: '';
+    position: absolute;
+    top: -60px; left: -60px;
+    width: 320px; height: 320px;
+    background: radial-gradient(circle, rgba(120,112,216,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--purple-text);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    opacity: 0;
+    animation: fadeUp 0.5s ease forwards;
+  }
+  .header-title {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    margin-bottom: 6px;
+    opacity: 0;
+    animation: fadeUp 0.5s 0.08s ease forwards;
+  }
+  .header-title span { color: var(--purple-accent); }
+  .header-sub {
+    font-size: 14px;
+    color: var(--text2);
+    font-weight: 300;
+    opacity: 0;
+    animation: fadeUp 0.5s 0.14s ease forwards;
+  }
+
+  /* ─── META ROW ─── */
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 40px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    opacity: 0;
+    animation: fadeUp 0.5s 0.2s ease forwards;
+  }
+  .meta-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    margin-right: 4px;
+  }
+  .member-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 6px;
+    border-radius: 20px;
+    border: 1px solid;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .member-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .pill-coral { background: var(--coral-bg); border-color: var(--coral-border); color: var(--coral-text); }
+  .pill-teal  { background: var(--teal-bg);  border-color: var(--teal-border);  color: var(--teal-text); }
+  .pill-purple{ background: var(--purple-bg);border-color: var(--purple-border);color: var(--purple-text); }
+  .pill-amber { background: var(--amber-bg); border-color: var(--amber-border); color: var(--amber-text); }
+
+  .vibe-pill {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: var(--purple-bg);
+    border: 1px dashed var(--purple-border);
+    color: var(--purple-text);
+    font-size: 12px;
+  }
+  .vibe-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--purple-accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(0.7)} }
+
+  /* ─── MAIN ─── */
+  .main { padding: 32px 40px 60px; }
+
+  /* ─── TIMELINE SPINE ─── */
+  .timeline {
+    position: relative;
+    padding-left: 28px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 7px; top: 16px; bottom: 40px;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--purple-accent), var(--teal-accent), var(--amber-accent));
+    opacity: 0.3;
+  }
+
+  /* ─── PHASE BLOCK ─── */
+  .phase {
+    position: relative;
+    margin-bottom: 28px;
+    opacity: 0;
+    transform: translateY(16px);
+    animation: fadeUp 0.5s ease forwards;
+  }
+  .phase:nth-child(1) { animation-delay: 0.25s; }
+  .phase:nth-child(2) { animation-delay: 0.35s; }
+  .phase:nth-child(3) { animation-delay: 0.45s; }
+  .phase:nth-child(4) { animation-delay: 0.55s; }
+  .phase:nth-child(5) { animation-delay: 0.65s; }
+
+  .phase-node {
+    position: absolute;
+    left: -28px; top: 18px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid;
+    background: var(--bg);
+  }
+
+  .phase-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .phase-card:hover { border-color: var(--border2); }
+
+  /* Phase header bar */
+  .phase-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .phase-topbar:hover { background: rgba(255,255,255,0.015); }
+
+  .phase-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid;
+    flex-shrink: 0;
+  }
+  .phase-name {
+    font-size: 15px;
+    font-weight: 500;
+    flex: 1;
+  }
+  .phase-duration {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+  }
+  .phase-toggle {
+    font-size: 16px;
+    color: var(--text3);
+    transition: transform 0.25s;
+    line-height: 1;
+  }
+  .phase-card.collapsed .phase-toggle { transform: rotate(-90deg); }
+
+  /* Grid */
+  .phase-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    transition: max-height 0.35s ease, opacity 0.25s ease;
+    overflow: hidden;
+    max-height: 1000px;
+    opacity: 1;
+  }
+  .phase-card.collapsed .phase-grid {
+    max-height: 0;
+    opacity: 0;
+  }
+  .phase-card.collapsed .phase-milestone { display: none; }
+
+  .member-col {
+    border-right: 1px solid var(--border);
+    padding: 0;
+  }
+  .member-col:last-child { border-right: none; }
+
+  .member-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg3);
+  }
+  .avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .m-name { font-size: 12px; font-weight: 500; }
+  .m-role { font-size: 10px; color: var(--text3); }
+
+  .task-list { padding: 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+
+  .task {
+    font-size: 12px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    border: 1px solid;
+    line-height: 1.45;
+    cursor: default;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+  .task:hover { transform: translateX(2px); opacity: 0.9; }
+  .task-coral  { background: var(--coral-bg);  border-color: var(--coral-border);  color: var(--coral-text); }
+  .task-teal   { background: var(--teal-bg);   border-color: var(--teal-border);   color: var(--teal-text); }
+  .task-purple { background: var(--purple-bg); border-color: var(--purple-border); color: var(--purple-text); }
+  .task-amber  { background: var(--amber-bg);  border-color: var(--amber-border);  color: var(--amber-text); }
+
+  /* Milestone */
+  .phase-milestone {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--bg3);
+    font-size: 12px;
+  }
+  .milestone-icon { font-size: 14px; flex-shrink: 0; }
+  .milestone-label { color: var(--text3); margin-right: 4px; font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.06em; }
+  .milestone-text { color: var(--text2); }
+
+  /* Phase-specific colors */
+  .phase-0 .phase-node { border-color: #505060; }
+  .phase-0 .phase-badge { background: var(--gray-bg); border-color: var(--gray-border); color: var(--gray-text); }
+  .phase-0 .phase-name { color: #c0c0d0; }
+
+  .phase-1 .phase-node { border-color: var(--coral-accent); }
+  .phase-1 .phase-badge { background: var(--coral-bg); border-color: var(--coral-border); color: var(--coral-text); }
+  .phase-1 .phase-name { color: var(--coral-text); }
+
+  .phase-2 .phase-node { border-color: var(--teal-accent); }
+  .phase-2 .phase-badge { background: var(--teal-bg); border-color: var(--teal-border); color: var(--teal-text); }
+  .phase-2 .phase-name { color: var(--teal-text); }
+
+  .phase-3 .phase-node { border-color: var(--purple-accent); }
+  .phase-3 .phase-badge { background: var(--purple-bg); border-color: var(--purple-border); color: var(--purple-text); }
+  .phase-3 .phase-name { color: var(--purple-text); }
+
+  .phase-4 .phase-node { border-color: var(--amber-accent); }
+  .phase-4 .phase-badge { background: var(--amber-bg); border-color: var(--amber-border); color: var(--amber-text); }
+  .phase-4 .phase-name { color: var(--amber-text); }
+
+  /* ─── FOOTER ─── */
+  .site-footer {
+    text-align: center;
+    padding: 20px;
+    border-top: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.06em;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .site-header, .meta-row, .main { padding-left: 20px; padding-right: 20px; }
+    .phase-grid { grid-template-columns: 1fr 1fr; }
+    .member-col:nth-child(2) { border-right: none; }
+    .member-col:nth-child(3) { border-top: 1px solid var(--border); }
+    .member-col:nth-child(4) { border-top: 1px solid var(--border); border-right: none; }
+    .vibe-pill { margin-left: 0; }
+  }
+  @media (max-width: 560px) {
+    .phase-grid { grid-template-columns: 1fr; }
+    .member-col { border-right: none !important; border-top: 1px solid var(--border); }
+    .member-col:first-child { border-top: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-eyebrow">Development Roadmap v1.0</div>
+  <h1 class="header-title"><span>[가칭]</span> Persona Fit</h1>
+  <p class="header-sub">팀 4인 · Phase 0–4 · 총 10–11주 · 바이브 코딩 병행</p>
+</header>
+
+<div class="meta-row">
+  <span class="meta-label">TEAM</span>
+  <span class="member-pill pill-coral"><span class="member-dot" style="background:#e85c30"></span>김도균 — FE 팀장</span>
+  <span class="member-pill pill-teal"><span class="member-dot" style="background:#20a878"></span>김다은 — BE 팀장</span>
+  <span class="member-pill pill-purple"><span class="member-dot" style="background:#7870d8"></span>송수빈 — 캐릭터·데이터</span>
+  <span class="member-pill pill-amber"><span class="member-dot" style="background:#c88020"></span>옥지민 — UI 디자인</span>
+  <span class="vibe-pill"><span class="vibe-dot"></span>바이브 코딩 병행</span>
+</div>
+
+<main class="main">
+<div class="timeline">
+
+  <!-- PHASE 0 -->
+  <div class="phase phase-0">
+    <div class="phase-node"></div>
+    <div class="phase-card" id="p0">
+      <div class="phase-topbar" onclick="toggle('p0')">
+        <span class="phase-badge">PHASE 0</span>
+        <span class="phase-name">기획·설계 정렬</span>
+        <span class="phase-duration">1–2주</span>
+        <span class="phase-toggle">▾</span>
+      </div>
+      <div class="phase-grid">
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--coral-bg);color:var(--coral-text);">도</div>
+            <div><div class="m-name">김도균</div><div class="m-role">FE 팀장</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-coral">화면 목록 & 네비게이션 구조 확정</div>
+            <div class="task task-coral">컴포넌트 아키텍처 설계</div>
+            <div class="task task-coral">기술 스택 선정 (React Native 등)</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--teal-bg);color:var(--teal-text);">다</div>
+            <div><div class="m-name">김다은</div><div class="m-role">BE 팀장</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-teal">DB 스키마 설계 (유저·운동·수면)</div>
+            <div class="task task-teal">API 엔드포인트 목록 정의</div>
+            <div class="task task-teal">푸시 알림 서비스 선정 (FCM 등)</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--purple-bg);color:var(--purple-text);">수</div>
+            <div><div class="m-name">송수빈</div><div class="m-role">캐릭터·데이터</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-purple">캐릭터 상태 머신 정의 (5–8가지 상태)</div>
+            <div class="task task-purple">Gemini 프롬프트 초안 작성</div>
+            <div class="task task-purple">OpenWeather API 키 발급·테스트</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--amber-bg);color:var(--amber-text);">지</div>
+            <div><div class="m-name">옥지민</div><div class="m-role">UI 디자인</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-amber">디자인 시스템 (컬러·타이포·컴포넌트)</div>
+            <div class="task task-amber">캐릭터 무드보드 & 레퍼런스 수집</div>
+            <div class="task task-amber">온보딩 플로우 와이어프레임</div>
+          </div>
+        </div>
+      </div>
+      <div class="phase-milestone">
+        <span class="milestone-icon">🏁</span>
+        <span class="milestone-label">MILESTONE</span>
+        <span class="milestone-text">설계 문서 공유 & 팀 리뷰 완료</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 1 -->
+  <div class="phase phase-1">
+    <div class="phase-node"></div>
+    <div class="phase-card" id="p1">
+      <div class="phase-topbar" onclick="toggle('p1')">
+        <span class="phase-badge">PHASE 1</span>
+        <span class="phase-name">온보딩 & 기반 인프라</span>
+        <span class="phase-duration">2–3주</span>
+        <span class="phase-toggle">▾</span>
+      </div>
+      <div class="phase-grid">
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--coral-bg);color:var(--coral-text);">도</div>
+            <div><div class="m-name">김도균</div><div class="m-role">FE 팀장</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-coral">온보딩 화면 개발 (목표·수면·숙련도)</div>
+            <div class="task task-coral">인바디 초기 입력 폼 구현</div>
+            <div class="task task-coral">디자인 시스템 컴포넌트 코드화</div>
+            <div class="task task-coral">네비게이션 라우터 세팅</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--teal-bg);color:var(--teal-text);">다</div>
+            <div><div class="m-name">김다은</div><div class="m-role">BE 팀장</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-teal">회원가입·로그인 API 구현</div>
+            <div class="task task-teal">유저 프로필 저장 API</div>
+            <div class="task task-teal">FCM 토큰 등록·관리 로직</div>
+            <div class="task task-teal">DB 마이그레이션 초기 셋업</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--purple-bg);color:var(--purple-text);">수</div>
+            <div><div class="m-name">송수빈</div><div class="m-role">캐릭터·데이터</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-purple">캐릭터 기본 스프라이트 에셋 제작</div>
+            <div class="task task-purple">Lottie 애니메이션 초기 세팅</div>
+            <div class="task task-purple">날씨 API 연동 모듈 개발</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--amber-bg);color:var(--amber-text);">지</div>
+            <div><div class="m-name">옥지민</div><div class="m-role">UI 디자인</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-amber">온보딩 전체 화면 UI 디자인</div>
+            <div class="task task-amber">캐릭터 기본 상태 디자인 (정상·피곤·배고픔)</div>
+            <div class="task task-amber">메인 홈 화면 디자인</div>
+          </div>
+        </div>
+      </div>
+      <div class="phase-milestone">
+        <span class="milestone-icon">🏁</span>
+        <span class="milestone-label">MILESTONE</span>
+        <span class="milestone-text">가입 → 온보딩 → 캐릭터 지급 플로우 동작 확인</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase phase-2">
+    <div class="phase-node"></div>
+    <div class="phase-card" id="p2">
+      <div class="phase-topbar" onclick="toggle('p2')">
+        <span class="phase-badge">PHASE 2</span>
+        <span class="phase-name">스마트 알림 & 운동 트래킹</span>
+        <span class="phase-duration">3주</span>
+        <span class="phase-toggle">▾</span>
+      </div>
+      <div class="phase-grid">
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--coral-bg);color:var(--coral-text);">도</div>
+            <div><div class="m-name">김도균</div><div class="m-role">FE 팀장</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-coral">운동 중 대시보드 UI (시간·거리·세트)</div>
+            <div class="task task-coral">러닝 메이트 캐릭터 애니메이션 연결</div>
+            <div class="task task-coral">알림 수신 시 앱 내 처리 로직</div>
+            <div class="task task-coral">운동 시작·중지·자동종료 화면</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--teal-bg);color:var(--teal-text);">다</div>
+            <div><div class="m-name">김다은</div><div class="m-role">BE 팀장</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-teal">스마트 알림 스케줄러 개발</div>
+            <div class="task task-teal">수면 데이터 수집·저장 API</div>
+            <div class="task task-teal">알림 트리거 로직 (시간·조건 기반)</div>
+            <div class="task task-teal">운동 세션 기록 API</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--purple-bg);color:var(--purple-text);">수</div>
+            <div><div class="m-name">송수빈</div><div class="m-role">캐릭터·데이터</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-purple">Gemini 알림 메시지 생성 프롬프트 구현</div>
+            <div class="task task-purple">날씨·수면·인바디 컨텍스트 통합 모듈</div>
+            <div class="task task-purple">알림 썸네일 캐릭터 상태 연동</div>
+            <div class="task task-purple">캐릭터 상태 머신 코드 구현</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--amber-bg);color:var(--amber-text);">지</div>
+            <div><div class="m-name">옥지민</div><div class="m-role">UI 디자인</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-amber">운동 중 대시보드 디자인</div>
+            <div class="task task-amber">캐릭터 상태별 표정·모션 디자인</div>
+            <div class="task task-amber">푸시 알림 썸네일 디자인</div>
+          </div>
+        </div>
+      </div>
+      <div class="phase-milestone" style="background:rgba(32,168,120,0.06);">
+        <span class="milestone-icon">⚡</span>
+        <span class="milestone-label">CRITICAL</span>
+        <span class="milestone-text">Gemini 연동 알림 발송 + 운동 세션 완전 기록 확인 — 다은·수빈 API 스펙 선합의 필요</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase phase-3">
+    <div class="phase-node"></div>
+    <div class="phase-card" id="p3">
+      <div class="phase-topbar" onclick="toggle('p3')">
+        <span class="phase-badge">PHASE 3</span>
+        <span class="phase-name">애프터케어·게이미피케이션·소셜</span>
+        <span class="phase-duration">3주</span>
+        <span class="phase-toggle">▾</span>
+      </div>
+      <div class="phase-grid">
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--coral-bg);color:var(--coral-text);">도</div>
+            <div><div class="m-name">김도균</div><div class="m-role">FE 팀장</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-coral">세션 리포트 요약 카드 UI</div>
+            <div class="task task-coral">뱃지·도전과제 달성 화면</div>
+            <div class="task task-coral">친구 찌르기·Co-op 뱃지 UI</div>
+            <div class="task task-coral">마이페이지·인바디 업데이트 탭</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--teal-bg);color:var(--teal-text);">다</div>
+            <div><div class="m-name">김다은</div><div class="m-role">BE 팀장</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-teal">애프터케어 알림 발송 로직</div>
+            <div class="task task-teal">뱃지 달성 조건 판별 API</div>
+            <div class="task task-teal">친구 관계·Co-op 달성 API</div>
+            <div class="task task-teal">피로도→다음날 알림 반영 로직</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--purple-bg);color:var(--purple-text);">수</div>
+            <div><div class="m-name">송수빈</div><div class="m-role">캐릭터·데이터</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-purple">Gemini 애프터케어 메시지 프롬프트</div>
+            <div class="task task-purple">캐릭터 운동 완료 빛나는 애니메이션</div>
+            <div class="task task-purple">캐릭터 아이템 장착 시스템 (뱃지 연동)</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--amber-bg);color:var(--amber-text);">지</div>
+            <div><div class="m-name">옥지민</div><div class="m-role">UI 디자인</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-amber">세션 리포트 카드 디자인</div>
+            <div class="task task-amber">뱃지 & 아이템 일러스트 디자인</div>
+            <div class="task task-amber">마이페이지 전체 디자인</div>
+            <div class="task task-amber">소셜·친구 화면 디자인</div>
+          </div>
+        </div>
+      </div>
+      <div class="phase-milestone">
+        <span class="milestone-icon">🏁</span>
+        <span class="milestone-label">MILESTONE</span>
+        <span class="milestone-text">전체 기능 통합 빌드 + 내부 테스트 시작</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 4 -->
+  <div class="phase phase-4">
+    <div class="phase-node"></div>
+    <div class="phase-card" id="p4">
+      <div class="phase-topbar" onclick="toggle('p4')">
+        <span class="phase-badge">PHASE 4</span>
+        <span class="phase-name">QA·폴리싱·출시 준비</span>
+        <span class="phase-duration">1–2주</span>
+        <span class="phase-toggle">▾</span>
+      </div>
+      <div class="phase-grid">
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--coral-bg);color:var(--coral-text);">도</div>
+            <div><div class="m-name">김도균</div><div class="m-role">FE 팀장</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-coral">반응형·다기종 기기 테스트</div>
+            <div class="task task-coral">성능 최적화 (렌더링·이미지)</div>
+            <div class="task task-coral">크래시·엣지케이스 수정</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--teal-bg);color:var(--teal-text);">다</div>
+            <div><div class="m-name">김다은</div><div class="m-role">BE 팀장</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-teal">API 부하 테스트</div>
+            <div class="task task-teal">알림 정확도 QA</div>
+            <div class="task task-teal">배포 파이프라인 구성</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--purple-bg);color:var(--purple-text);">수</div>
+            <div><div class="m-name">송수빈</div><div class="m-role">캐릭터·데이터</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-purple">Gemini 응답 품질 QA & 프롬프트 튜닝</div>
+            <div class="task task-purple">캐릭터 애니메이션 최종 점검</div>
+            <div class="task task-purple">날씨·수면 데이터 엣지케이스 처리</div>
+          </div>
+        </div>
+        <div class="member-col">
+          <div class="member-head">
+            <div class="avatar" style="background:var(--amber-bg);color:var(--amber-text);">지</div>
+            <div><div class="m-name">옥지민</div><div class="m-role">UI 디자인</div></div>
+          </div>
+          <div class="task-list">
+            <div class="task task-amber">UI 폴리싱 & 픽셀 퍼펙트 검수</div>
+            <div class="task task-amber">앱스토어 스크린샷·아이콘 제작</div>
+            <div class="task task-amber">빈 상태·에러 화면 디자인</div>
+          </div>
+        </div>
+      </div>
+      <div class="phase-milestone" style="background:rgba(200,128,32,0.07);">
+        <span class="milestone-icon">🚀</span>
+        <span class="milestone-label">SHIP</span>
+        <span class="milestone-text">TestFlight / 내부 배포 → 앱스토어 제출</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /timeline -->
+</main>
+
+<footer class="site-footer">
+  persona fit — dev roadmap · generated 2026 · 총 10–11주
+</footer>
+
+<script>
+  function toggle(id) {
+    const card = document.getElementById(id);
+    card.classList.toggle('collapsed');
+  }
+</script>
+</body>
+</html>
