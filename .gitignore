@@ -1,5 +1,6 @@
 # Claude Code 로컬 설정 (개인 환경마다 다름)
 .claude/settings.local.json
+.claude/agent-memory/
 
 # macOS
 .DS_Store
