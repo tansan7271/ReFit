@@ -6,7 +6,10 @@ from app.core.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.sleep import SleepRecord, SleepQuality
-from app.schemas.sleep import SleepRecordCreate, SleepRecordResponse, SleepStatResponse
+from app.schemas.sleep import (
+    SleepRecordCreate, SleepRecordResponse, SleepStatResponse,
+    SleepSyncRequest, SleepSyncResponse,
+)
 
 router = APIRouter(prefix="/sleep", tags=["Sleep"])
 
@@ -44,6 +47,55 @@ async def create_sleep_record(
     db.add(record)
     await db.flush()
     return record
+
+
+@router.post("/sync", response_model=SleepSyncResponse, status_code=200)
+async def sync_sleep_records(
+    body: SleepSyncRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """헬스 앱(HealthKit / Health Connect) 수면 데이터 벌크 동기화.
+
+    모바일 클라이언트가 동일 데이터를 재동기화해도 안전하도록 멱등 처리한다.
+    중복 판정 기준: (user_id, sleep_start, source) — 같은 세션을 다시 보내면 건너뛴다.
+    """
+    # 이미 저장된 (sleep_start, source) 조합을 한 번에 조회해 중복 판정
+    existing_result = await db.execute(
+        select(SleepRecord.sleep_start, SleepRecord.source).where(
+            SleepRecord.user_id == current_user.id,
+            SleepRecord.sleep_start.in_([item.sleep_start for item in body.records]),
+        )
+    )
+    existing_keys = {(row[0], row[1]) for row in existing_result.all()}
+
+    created = 0
+    seen_in_batch: set[tuple] = set()
+    for item in body.records:
+        key = (item.sleep_start, item.source)
+        # DB에 이미 있거나 같은 요청 안에서 중복된 경우 건너뜀
+        if key in existing_keys or key in seen_in_batch:
+            continue
+        seen_in_batch.add(key)
+
+        db.add(SleepRecord(
+            user_id=current_user.id,
+            sleep_start=item.sleep_start,
+            sleep_end=item.sleep_end,
+            duration_minutes=item.duration_minutes,
+            deep_sleep_minutes=item.deep_sleep_minutes,
+            rem_sleep_minutes=item.rem_sleep_minutes,
+            light_sleep_minutes=item.light_sleep_minutes,
+            awake_minutes=item.awake_minutes,
+            heart_rate_avg=item.heart_rate_avg,
+            hrv_ms=item.hrv_ms,
+            source=item.source,
+        ))
+        created += 1
+
+    await db.flush()
+    total = len(body.records)
+    return SleepSyncResponse(created=created, skipped=total - created, total=total)
 
 
 @router.get("", response_model=list[SleepRecordResponse])

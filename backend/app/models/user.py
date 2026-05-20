@@ -50,6 +50,11 @@ class User(Base):
         String(100), nullable=True
     )  # 목표: 체중감량, 근육증가, 체력향상 등
 
+    # 수면 목표 — 온보딩에서 설정하는 목표 취침/기상 시각 ("HH:MM", 로컬 기준)
+    sleep_goal_bedtime: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    sleep_goal_wakeup: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    sleep_goal_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 목표 수면 시간(분)
+
     # 캐릭터 정보 (게임화 요소)
     character_emoji: Mapped[str] = mapped_column(String(10), default="🐣", nullable=False)
     character_level: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

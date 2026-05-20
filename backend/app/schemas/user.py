@@ -33,6 +33,9 @@ class RefreshRequest(BaseModel):
 
 # ── User Profile ───────────────────────────────────────────────────────────────
 
+_TIME_PATTERN = r"^([01]\d|2[0-3]):[0-5]\d$"  # "HH:MM" 24시간 형식
+
+
 class OnboardingRequest(BaseModel):
     age: int = Field(ge=10, le=100)
     gender: Gender
@@ -41,6 +44,10 @@ class OnboardingRequest(BaseModel):
     fitness_level: FitnessLevel
     goal: str = Field(max_length=100)
     character_emoji: str = Field(min_length=1, max_length=10)
+
+    # 수면 목표 (선택) — 온보딩 수면 설정 단계에서 함께 전달
+    sleep_goal_bedtime: str | None = Field(None, pattern=_TIME_PATTERN)
+    sleep_goal_wakeup: str | None = Field(None, pattern=_TIME_PATTERN)
 
 
 class UserProfileUpdate(BaseModel):
@@ -54,6 +61,20 @@ class UserProfileUpdate(BaseModel):
     character_emoji: str | None = Field(None, max_length=10)
 
 
+class SleepGoalUpdate(BaseModel):
+    """수면 목표 시각 설정 — 취침/기상 목표 시각으로 목표 수면 시간을 계산해 저장"""
+    sleep_goal_bedtime: str = Field(pattern=_TIME_PATTERN)
+    sleep_goal_wakeup: str = Field(pattern=_TIME_PATTERN)
+
+
+class SleepGoalResponse(BaseModel):
+    sleep_goal_bedtime: str | None
+    sleep_goal_wakeup: str | None
+    sleep_goal_minutes: int | None
+
+    model_config = {"from_attributes": True}
+
+
 class UserResponse(BaseModel):
     id: int
     email: str
@@ -64,6 +85,9 @@ class UserResponse(BaseModel):
     weight_kg: float | None
     fitness_level: FitnessLevel
     goal: str | None
+    sleep_goal_bedtime: str | None
+    sleep_goal_wakeup: str | None
+    sleep_goal_minutes: int | None
     character_emoji: str
     character_level: int
     character_xp: int

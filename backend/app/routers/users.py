@@ -8,12 +8,28 @@ from app.models.user import User, UserInBody
 from app.models.notification import PushToken
 from app.schemas.user import (
     UserResponse, UserProfileUpdate, InBodyCreate, InBodyResponse, OnboardingRequest,
+    SleepGoalUpdate, SleepGoalResponse,
 )
 from app.services.fcm_service import fcm_service
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
 WELCOME_XP = 100
+
+
+def _sleep_goal_minutes(bedtime: str, wakeup: str) -> int:
+    """목표 취침/기상 시각("HH:MM")으로 목표 수면 시간(분)을 계산. 자정을 넘기는 경우 처리.
+
+    취침/기상 시각이 동일하면 수면 시간을 판단할 수 없으므로 400 에러를 발생시킨다.
+    """
+    bh, bm = (int(x) for x in bedtime.split(":"))
+    wh, wm = (int(x) for x in wakeup.split(":"))
+    minutes = (wh * 60 + wm) - (bh * 60 + bm)
+    if minutes == 0:
+        raise HTTPException(status_code=400, detail="취침 시각과 기상 시각이 동일합니다")
+    if minutes < 0:  # 취침이 자정 이전, 기상이 다음 날인 일반적 케이스
+        minutes += 24 * 60
+    return minutes
 
 
 @router.post("/me/onboard", response_model=UserResponse)
@@ -34,6 +50,15 @@ async def complete_onboarding(
     current_user.character_emoji = body.character_emoji
     current_user.character_xp = WELCOME_XP
     current_user.is_onboarding_complete = True
+
+    # 수면 목표 (온보딩 수면 설정 단계) — 둘 다 전달된 경우에만 저장
+    if body.sleep_goal_bedtime and body.sleep_goal_wakeup:
+        current_user.sleep_goal_bedtime = body.sleep_goal_bedtime
+        current_user.sleep_goal_wakeup = body.sleep_goal_wakeup
+        current_user.sleep_goal_minutes = _sleep_goal_minutes(
+            body.sleep_goal_bedtime, body.sleep_goal_wakeup
+        )
+
     db.add(current_user)
     await db.flush()
 
@@ -72,6 +97,30 @@ async def update_my_profile(
 ):
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(current_user, field, value)
+    db.add(current_user)
+    return current_user
+
+
+# ── Sleep Goal ─────────────────────────────────────────────────────────────────
+
+@router.get("/me/sleep-goal", response_model=SleepGoalResponse)
+async def get_sleep_goal(current_user: User = Depends(get_current_user)):
+    """현재 설정된 수면 목표 조회. 미설정 시 모든 필드가 null."""
+    return current_user
+
+
+@router.put("/me/sleep-goal", response_model=SleepGoalResponse)
+async def update_sleep_goal(
+    body: SleepGoalUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """수면 목표 취침/기상 시각 설정 (온보딩 이후 마이페이지에서 수정 시에도 사용)."""
+    current_user.sleep_goal_bedtime = body.sleep_goal_bedtime
+    current_user.sleep_goal_wakeup = body.sleep_goal_wakeup
+    current_user.sleep_goal_minutes = _sleep_goal_minutes(
+        body.sleep_goal_bedtime, body.sleep_goal_wakeup
+    )
     db.add(current_user)
     return current_user
 

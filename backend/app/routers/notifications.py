@@ -92,13 +92,14 @@ async def update_notification_settings(
 
 @router.post("/send/workout-reminder")
 async def send_workout_reminder(
-    user_id: int,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    """운동 알림 발송 (스케줄러 또는 내부에서 호출)"""
+    """운동 알림 발송 — 인증된 본인에게만 발송 (IDOR 방지)."""
     result = await db.execute(
-        select(PushToken).where(PushToken.user_id == user_id, PushToken.is_active == True)
+        select(PushToken).where(
+            PushToken.user_id == current_user.id, PushToken.is_active == True
+        )
     )
     tokens = result.scalars().all()
     if not tokens:

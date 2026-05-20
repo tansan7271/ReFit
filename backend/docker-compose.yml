@@ -16,7 +16,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    # ports 없음 — MySQL은 Docker 내부 네트워크에서만 접근 가능
+    ports:
+      - "127.0.0.1:3306:3306"  # 로컬 개발용 (alembic 등) — 외부엔 닫혀 있음
 
   api:
     build: .

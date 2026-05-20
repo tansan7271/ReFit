@@ -2,8 +2,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.routers import auth, users, workouts, sleep, badges, community, notifications
 
 
@@ -17,14 +20,22 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+    openapi_url="/openapi.json" if settings.DEBUG else None,
     lifespan=lifespan,
 )
 
+# ── Rate limiting (slowapi) ─────────────────────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── CORS ────────────────────────────────────────────────────────────────────────
+# 웹 브라우저 개발/배포 origin만 허용 (RN 앱은 CORS 미적용).
+# origin 목록은 settings.CORS_ORIGINS / .env 의 CORS_ORIGINS 로 관리.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 개발 중 전체 허용; 프로덕션에서는 앱 도메인만 지정
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
