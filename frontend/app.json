@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "ReFit",
+    "slug": "refit",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "refit",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#f0f4ff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.refit.app",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "운동 전 컨디션 분석과 운동 후 회복 가이드를 위해 수면·심박·활동량·체중 데이터를 읽어옵니다.",
+        "NSHealthUpdateUsageDescription": "운동 기록을 건강 앱에 저장하기 위해 사용됩니다."
+      }
+    },
+    "android": {
+      "package": "com.refit.app",
+      "permissions": [
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_WEIGHT"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#1A5CCC"
+        }
+      ],
+      [
+        "react-native-health",
+        {
+          "isClinicalDataEnabled": false,
+          "healthSharePermission": "운동 전후 케어를 위해 건강 데이터를 읽어옵니다.",
+          "healthUpdatePermission": "운동 기록을 건강 앱에 저장합니다."
+        }
+      ],
+      "expo-asset",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

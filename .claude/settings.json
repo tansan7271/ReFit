@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npm audit)",
+      "Bash(npx expo install *)",
+      "Bash(npx expo start *)",
+      "Bash(npx expo run:ios)",
+      "Bash(npx expo run:android)",
+      "Bash(npx create-expo-app *)",
+      "Bash(pip install *)",
+      "Bash(pip3 install *)",
+      "Bash(python -m alembic *)",
+      "Bash(python3 -m alembic *)",
+      "Bash(alembic *)",
+      "Bash(docker compose *)",
+      "Bash(docker-compose *)",
+      "Bash(git fetch *)",
+      "Bash(git stash *)",
+      "Bash(git rebase *)"
+    ]
+  }
+}
