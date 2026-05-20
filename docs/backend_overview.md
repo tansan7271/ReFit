@@ -46,13 +46,14 @@ backend/
 ├── Dockerfile                  ← 서버 컨테이너 빌드
 ├── docker-compose.yml          ← MySQL + 서버 통합 실행
 ├── alembic.ini                 ← Alembic 설정 (backend/ 루트에 위치)
-├── seed_exercises.py           ← 초기 데이터 삽입 스크립트
+├── seed_exercises.py           ← 운동 마스터 데이터 삽입 스크립트 (멱등)
 │
 ├── alembic/
 │   ├── env.py                  ← 비동기 마이그레이션 설정
 │   └── versions/
 │       ├── 4a5004ce120d_init.py              ← 전체 스키마 생성 (14 테이블)
-│       └── b1a2c3d4e5f6_add_onboarding_complete.py  ← is_onboarding_complete 컬럼 추가
+│       ├── b1a2c3d4e5f6_add_onboarding_complete.py  ← is_onboarding_complete 컬럼 추가
+│       └── c2b3d4e5f6a7_add_sleep_goal_to_users.py  ← sleep_goal_* 3개 컬럼 추가
 │
 └── app/
     ├── main.py                 ← FastAPI 앱 진입점, CORS 설정, 라우터 등록
@@ -61,10 +62,11 @@ backend/
     ├── core/
     │   ├── config.py           ← 환경변수 → Settings 객체 (pydantic-settings)
     │   ├── database.py         ← 비동기 엔진/세션, get_db() 의존성
+    │   ├── rate_limit.py       ← slowapi Limiter 공유 인스턴스
     │   └── security.py         ← 비밀번호 해싱, JWT 발급/검증 함수
     │
     ├── models/                 ← DB 테이블 정의 (SQLAlchemy ORM)
-    │   ├── user.py             ← users, user_inbody
+    │   ├── user.py             ← users (sleep_goal 필드 포함), user_inbody
     │   ├── workout.py          ← exercises, workout_plans, workout_plan_exercises,
     │   │                          workout_sessions, workout_sets
     │   ├── sleep.py            ← sleep_records
@@ -73,7 +75,7 @@ backend/
     │   └── notification.py     ← push_tokens, notification_settings
     │
     ├── schemas/                ← Pydantic 요청/응답 스키마 (모델과 1:1 대응)
-    │   ├── user.py
+    │   ├── user.py             ← UserResponse에 sleep_goal 필드 포함
     │   ├── workout.py
     │   ├── sleep.py
     │   ├── badge.py
@@ -81,17 +83,19 @@ backend/
     │   └── notification.py
     │
     ├── routers/                ← 엔드포인트 핸들러 (도메인별로 분리)
-    │   ├── auth.py             ← 회원가입, 로그인, 토큰 갱신
-    │   ├── users.py            ← 프로필, 온보딩, 인바디
+    │   ├── auth.py             ← 회원가입, 로그인, 토큰 갱신 (rate limit 적용)
+    │   ├── users.py            ← 프로필, 온보딩, 수면목표, 인바디
     │   ├── workouts.py         ← 운동 종목, 루틴 계획, 세션 기록
-    │   ├── sleep.py            ← 수면 기록
-    │   ├── badges.py           ← 뱃지 목록, 장착
+    │   ├── sleep.py            ← 수면 기록 (단건/벌크 동기화/통계)
+    │   ├── badges.py           ← 뱃지 목록, 내 뱃지, 장착
     │   ├── community.py        ← 친구 요청/수락, 콕찌르기
-    │   └── notifications.py    ← FCM 토큰 등록, 알림 설정
+    │   └── notifications.py    ← FCM 토큰 등록/해제, 알림 설정, 알림 발송
     │
     └── services/               ← 비즈니스 로직 (라우터에서 분리)
         ├── fcm_service.py      ← FCM 푸시 알림 전송 (단건/멀티캐스트)
-        └── badge_service.py    ← 뱃지 자동 지급 로직
+        ├── badge_service.py    ← 뱃지 자동 지급 로직
+        ├── gemini_service.py   ← Gemini AI 메시지 생성 (운동 전/후, 수면 분석)
+        └── weather_service.py  ← OpenWeather 현재 날씨 조회 (1시간 캐싱)
 ```
 
 ---

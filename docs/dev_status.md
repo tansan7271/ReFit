@@ -109,14 +109,18 @@
 #### Notifications (`/notifications`)
 | 엔드포인트 | 상태 | 비고 |
 |------------|------|------|
-| `POST /notifications/push-token` | 🔧 | FCM 토큰 등록 (구현 확인 필요) |
-| `GET /notifications/settings` | 🔧 | 알림 설정 조회 |
-| `PATCH /notifications/settings` | 🔧 | 알림 설정 수정 |
+| `POST /notifications/token` | ✅ | FCM 토큰 등록 (upsert) |
+| `DELETE /notifications/token/{token}` | ✅ | FCM 토큰 비활성화 |
+| `GET /notifications/settings` | ✅ | 알림 설정 조회 |
+| `PATCH /notifications/settings` | ✅ | 알림 설정 수정 |
+| `POST /notifications/send/workout-reminder` | ✅ | 본인에게 운동 알림 발송 (IDOR 방지) |
 
 #### Badges (`/badges`)
 | 엔드포인트 | 상태 | 비고 |
 |------------|------|------|
-| `GET /badges` | 🔧 | 뱃지 목록 + 획득 여부 |
+| `GET /badges` | ✅ | 전체 뱃지 목록 조회 |
+| `GET /badges/me` | ✅ | 내가 획득한 뱃지 목록 |
+| `POST /badges/me/equip` | ✅ | 뱃지 장착 (기존 장착 자동 해제) |
 | `POST /badges/check` | ❌ | 조건 충족 시 자동 수여 로직 미구현 |
 
 #### Community (`/community`)
@@ -130,8 +134,8 @@
 |--------|------|------|
 | FCM 서비스 (푸시 알림 발송) | ✅ | `backend/app/services/fcm_service.py` |
 | 뱃지 자동 수여 | 🔧 | `backend/app/services/badge_service.py` |
-| **Gemini AI 서비스** | ❌ | **핵심 미구현 — 운동 전/후 메시지 생성** |
-| **OpenWeather 서비스** | ❌ | **미구현 — 날씨 컨텍스트 수집** |
+| **Gemini AI 서비스** | ✅ | `backend/app/services/gemini_service.py` — 운동 전/후 메시지, 수면 분석 |
+| **OpenWeather 서비스** | ✅ | `backend/app/services/weather_service.py` — 현재 날씨 조회·캐싱 |
 | **APScheduler (서버 크론)** | ❌ | 패키지만 있음, 스케줄러 미연결 |
 
 ---
@@ -206,9 +210,10 @@
 > 로드맵 1주차 — 인증 + 온보딩 화면 실제 구현 단계
 
 ### 백엔드 (다은)
-1. `GET /workouts/exercises` 용 시드 데이터 추가 (운동 마스터 데이터)
-2. Gemini 서비스 레이어 구현 (`backend/app/services/gemini_service.py`)
-3. OpenWeather 서비스 구현 (`backend/app/services/weather_service.py`)
+1. ✅ ~~`GET /workouts/exercises` 용 시드 데이터 추가~~ → `backend/seed_exercises.py` 생성 완료
+2. ✅ ~~Gemini 서비스 레이어 구현~~ → `backend/app/services/gemini_service.py` 구현 완료
+3. ✅ ~~OpenWeather 서비스 구현~~ → `backend/app/services/weather_service.py` 구현 완료
+4. Gemini/OpenWeather 라우터 연결 — AI 운동 피드백·날씨 엔드포인트 추가 필요
 
 ### 프론트엔드 (수빈)
 1. 로그인 / 회원가입 화면 실제 API 연동 (`api.ts`의 `login()`/`register()` → `AuthSession` 반환)
@@ -227,7 +232,7 @@
 
 | 항목 | 위치 | 설명 |
 |------|------|------|
-| DB 커밋 누락 가능성 | 여러 라우터 | `await db.commit()` 없이 `flush()`만 사용 — `autocommit` 설정 확인 필요 |
+| ~~DB 커밋 누락 가능성~~ | ~~여러 라우터~~ | ✅ 해결됨 — `get_db()`가 `await session.commit()` 자동 처리 |
 | 커뮤니티 모델 | `backend/app/models/community.py` | MVP 이후 스코프이나 라우터에 등록돼 있음 |
 | JWT 무효화 (로그아웃) | `backend/app/routers/auth.py` | refresh token 폐기 메커니즘 없음 — 60분 만료 후 강제 로그아웃 |
 | Refresh token 갱신 프론트 미구현 | `frontend/services/api.ts` | 401 시 자동 재발급 로직 없음 |
