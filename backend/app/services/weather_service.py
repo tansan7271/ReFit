@@ -53,33 +53,48 @@ class WeatherService:
             return f"{lat:.2f},{lon:.2f}"
         return (city or "").lower()
 
-    def _parse(self, data: dict[str, Any]) -> WeatherInfo:
-        main = data["main"]
-        weather = data["weather"][0]
-        wind = data.get("wind", {})
-        temp = main["temp"] - 273.15
-        feels = main["feels_like"] - 273.15
-        wind_speed = wind.get("speed", 0.0)
+    def _parse(self, data: dict[str, Any]) -> WeatherInfo | None:
+        """OpenWeather 응답을 WeatherInfo로 변환.
 
-        # 야외 운동 적합 여부: 기온 5~33도, 풍속 10m/s 이하, 비/눈 아님
-        bad_weather_ids = {2, 3, 5, 6}  # 뇌우, 이슬비, 비, 눈 (첫 자리)
-        weather_main_id = weather["id"] // 100
-        is_outdoor_ok = (
-            5 <= temp <= 33
-            and wind_speed <= 10
-            and weather_main_id not in bad_weather_ids
-        )
+        응답 스키마가 예상과 다르거나 필수 키가 누락된 경우
+        예외를 던지지 않고 None을 반환한다. 호출부는 None을
+        '날씨 정보 없음'으로 graceful하게 처리해야 한다.
+        """
+        try:
+            main = data["main"]
+            weather_list = data.get("weather") or []
+            if not weather_list:
+                logger.warning("OpenWeather 응답에 weather 항목이 없습니다")
+                return None
+            weather = weather_list[0]
+            wind = data.get("wind", {})
 
-        return WeatherInfo(
-            city=data.get("name", ""),
-            temp_c=round(temp, 1),
-            feels_like_c=round(feels, 1),
-            humidity=main["humidity"],
-            description=weather["description"],
-            icon=weather["icon"],
-            wind_speed=wind_speed,
-            is_outdoor_ok=is_outdoor_ok,
-        )
+            temp = main["temp"] - 273.15
+            feels = main["feels_like"] - 273.15
+            wind_speed = wind.get("speed", 0.0)
+
+            # 야외 운동 적합 여부: 기온 5~33도, 풍속 10m/s 이하, 비/눈 아님
+            bad_weather_ids = {2, 3, 5, 6}  # 뇌우, 이슬비, 비, 눈 (첫 자리)
+            weather_main_id = weather.get("id", 0) // 100
+            is_outdoor_ok = (
+                5 <= temp <= 33
+                and wind_speed <= 10
+                and weather_main_id not in bad_weather_ids
+            )
+
+            return WeatherInfo(
+                city=data.get("name", ""),
+                temp_c=round(temp, 1),
+                feels_like_c=round(feels, 1),
+                humidity=main["humidity"],
+                description=weather.get("description", ""),
+                icon=weather.get("icon", ""),
+                wind_speed=wind_speed,
+                is_outdoor_ok=is_outdoor_ok,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.warning("OpenWeather 응답 파싱 실패: %s", exc)
+            return None
 
     async def get_weather(
         self,
@@ -117,6 +132,9 @@ class WeatherService:
                 resp = await client.get(_BASE_URL, params=params)
                 resp.raise_for_status()
                 info = self._parse(resp.json())
+                if info is None:
+                    # 파싱 실패 — None을 캐싱하지 않고 그대로 반환
+                    return None
                 self._cache[cache_key] = _CacheEntry(data=info)
                 return info
         except httpx.HTTPStatusError as exc:

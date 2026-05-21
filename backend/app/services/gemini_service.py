@@ -20,8 +20,10 @@ logger = logging.getLogger(__name__)
 # SDK import — 키가 없는 환경에서도 import 실패 방지
 try:
     import google.generativeai as genai
+    from google.api_core import exceptions as _api_exceptions
     _SDK_AVAILABLE = True
 except ImportError:
+    _api_exceptions = None  # type: ignore[assignment]
     _SDK_AVAILABLE = False
     logger.warning("google-generativeai 패키지가 없습니다. fallback 메시지를 사용합니다.")
 
@@ -39,14 +41,25 @@ class GeminiService:
 
     # ── 내부 헬퍼 ────────────────────────────────────────────────────────────
 
+    # API 호출 타임아웃 (초). 모바일 요청 경로를 막지 않도록 짧게 유지.
+    _REQUEST_TIMEOUT = 10
+
     async def _generate(self, prompt: str, fallback: str) -> str:
         if not self._enabled or self._model is None:
             return fallback
         try:
-            response = await self._model.generate_content_async(prompt)
+            response = await self._model.generate_content_async(
+                prompt,
+                request_options={"timeout": self._REQUEST_TIMEOUT},
+            )
             return response.text.strip()
         except Exception as exc:
-            logger.warning("Gemini API 호출 실패: %s", exc)
+            if _api_exceptions and isinstance(exc, _api_exceptions.RetryError):
+                logger.warning(
+                    "Gemini API 호출 타임아웃(%ss): %s", self._REQUEST_TIMEOUT, exc
+                )
+            else:
+                logger.warning("Gemini API 호출 실패: %s", exc)
             return fallback
 
     # ── 퍼블릭 API ───────────────────────────────────────────────────────────
