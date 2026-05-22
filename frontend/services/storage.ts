@@ -12,6 +12,9 @@ import * as SecureStore from 'expo-secure-store';
 /** JWT 액세스 토큰 저장 키 — authStore 와 api 인터셉터가 공유 */
 export const ACCESS_TOKEN_KEY = 'refit.jwt';
 
+/** JWT 리프레시 토큰 저장 키 */
+export const REFRESH_TOKEN_KEY = 'refit.refresh';
+
 export const storage = {
   async getItem(key: string): Promise<string | null> {
     if (Platform.OS === 'web') return localStorage.getItem(key);
