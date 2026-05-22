@@ -15,13 +15,15 @@ export function useLoopAnimation(
   const anim = useRef(new Animated.Value(fromValue)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(anim, { toValue, duration, useNativeDriver: true }),
         Animated.timing(anim, { toValue: fromValue, duration, useNativeDriver: true }),
       ])
-    ).start();
-  }, []);
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [toValue, duration, fromValue]);
 
   return anim;
 }

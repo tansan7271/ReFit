@@ -62,6 +62,9 @@ api.interceptors.response.use(
         } catch {
           await storage.deleteItem(ACCESS_TOKEN_KEY);
           await storage.deleteItem(REFRESH_TOKEN_KEY);
+          // authStore 와의 순환참조를 피하기 위해 호출 시점에 lazy require
+          const { useAuthStore } = require('@/store/authStore') as typeof import('@/store/authStore');
+          await useAuthStore.getState().signOut();
         }
       }
     }
@@ -106,10 +109,13 @@ export interface AuthSession {
 }
 
 function toAuthSession(data: TokenResponseRaw): AuthSession {
+  if (!data.user) {
+    throw new Error('서버 응답에 사용자 정보가 없습니다.');
+  }
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
-    user: data.user!,
+    user: data.user,
   };
 }
 

@@ -16,6 +16,7 @@ interface BadgeState {
   error: string | null;
 
   fetchData: (force?: boolean) => Promise<void>;
+  reset: () => void;
 }
 
 export const useBadgeStore = create<BadgeState>((set, get) => ({
@@ -37,4 +38,13 @@ export const useBadgeStore = create<BadgeState>((set, get) => ({
       set({ loading: false });
     }
   },
+
+  reset: () =>
+    set({
+      allBadges: [],
+      myBadges: [],
+      loading: false,
+      loaded: false,
+      error: null,
+    }),
 }));

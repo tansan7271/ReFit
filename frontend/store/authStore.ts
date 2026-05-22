@@ -6,6 +6,8 @@ import { create } from 'zustand';
 
 import { fetchMe } from '@/services/api';
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, storage } from '@/services/storage';
+import { useBadgeStore } from '@/store/badgeStore';
+import { useWorkoutStore } from '@/store/workoutStore';
 import type { User } from '@/types';
 
 /** 앱 부팅 시 토큰 복원 흐름의 상태 */
@@ -56,6 +58,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   signOut: async () => {
     await storage.deleteItem(ACCESS_TOKEN_KEY);
     await storage.deleteItem(REFRESH_TOKEN_KEY);
+    useWorkoutStore.getState().reset();
+    useBadgeStore.getState().reset();
     set({ status: 'unauthenticated', user: null });
   },
 }));

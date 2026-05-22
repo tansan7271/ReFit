@@ -117,13 +117,15 @@ export default function LoginScreen() {
           </View>
 
           {/* 개발용 바로가기 — API 연동 확인 후 제거 */}
-          <TouchableOpacity
-            style={styles.devBtn}
-            onPress={() => router.replace('/(main)')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.devBtnText}>🛠 개발용 메인 바로가기</Text>
-          </TouchableOpacity>
+          {__DEV__ && (
+            <TouchableOpacity
+              style={styles.devBtn}
+              onPress={() => router.replace('/(main)')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.devBtnText}>🛠 개발용 메인 바로가기</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

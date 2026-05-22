@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -32,11 +32,14 @@ export default function SessionScreen() {
         await completeWorkoutSession(currentSessionId, { sets: [] });
         setCurrentSessionId(null);
       }
+      router.replace('/(main)/post-workout');
     } catch {
-      // 워치 연동 데이터가 없는 경우 무시하고 계속 진행
+      Alert.alert(
+        '기록 실패',
+        '운동 기록을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.',
+      );
     } finally {
       setCompleting(false);
-      router.push('/(main)/post-workout');
     }
   };
 
