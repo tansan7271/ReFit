@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 
 import { fetchMe } from '@/services/api';
-import { ACCESS_TOKEN_KEY, storage } from '@/services/storage';
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, storage } from '@/services/storage';
 import type { User } from '@/types';
 
 /** 앱 부팅 시 토큰 복원 흐름의 상태 */
@@ -18,7 +18,7 @@ interface AuthState {
   /** 앱 시작 시 1회 호출 — 저장된 토큰으로 세션 복원 */
   bootstrap: () => Promise<void>;
   /** 로그인/회원가입 성공 후 호출 */
-  setSession: (token: string, user: User) => Promise<void>;
+  setSession: (accessToken: string, refreshToken: string, user: User) => Promise<void>;
   /** 온보딩 완료 등으로 user 정보만 갱신 */
   setUser: (user: User) => void;
   /** 로그아웃 */
@@ -36,18 +36,18 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ status: 'unauthenticated', user: null });
         return;
       }
-      // 토큰이 있으면 유효성 검증 + 유저 조회
       const user = await fetchMe();
       set({ status: 'authenticated', user });
     } catch {
-      // 토큰 만료/무효 — 정리 후 비로그인 처리
       await storage.deleteItem(ACCESS_TOKEN_KEY);
+      await storage.deleteItem(REFRESH_TOKEN_KEY);
       set({ status: 'unauthenticated', user: null });
     }
   },
 
-  setSession: async (token, user) => {
-    await storage.setItem(ACCESS_TOKEN_KEY, token);
+  setSession: async (accessToken, refreshToken, user) => {
+    await storage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    await storage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     set({ status: 'authenticated', user });
   },
 
@@ -55,6 +55,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signOut: async () => {
     await storage.deleteItem(ACCESS_TOKEN_KEY);
+    await storage.deleteItem(REFRESH_TOKEN_KEY);
     set({ status: 'unauthenticated', user: null });
   },
 }));
