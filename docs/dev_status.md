@@ -4,7 +4,7 @@
 > 중복 작업·충돌을 방지하기 위한 단일 진실 소스입니다.
 > 새로운 기능을 구현하거나 완료하면 이 파일을 함께 업데이트하세요.
 >
-> **Last updated:** 2026-05-20
+> **Last updated:** 2026-05-23
 
 ---
 
@@ -147,12 +147,16 @@
 | 항목 | 상태 | 파일 |
 |------|------|------|
 | expo-router 파일 기반 라우팅 | ✅ | `frontend/app/` |
-| Zustand 인증 스토어 | ✅ | `frontend/store/authStore.ts` |
+| Zustand 인증 스토어 | ✅ | `frontend/store/authStore.ts` — 로그아웃 시 워크아웃·뱃지 스토어 초기화 포함 |
 | Zustand 온보딩 스토어 | ✅ | `frontend/store/onboardingStore.ts` — `age`/`gender`/`goal`/`characterEmoji` 필드 포함 |
 | SecureStore (iOS/Android) + localStorage (web) | ✅ | `frontend/services/storage.ts` — 단일 출처로 분리 |
-| API 클라이언트 | ✅ | `frontend/services/api.ts` — 인터셉터, `AuthSession` 타입, 백엔드 필드명 매핑 완료 |
+| API 클라이언트 | ✅ | `frontend/services/api.ts` — 인터셉터, `AuthSession` 타입, null guard, refresh 실패 시 자동 로그아웃 |
 | Health 데이터 서비스 | 🔧 | `frontend/services/health.ts` — 기본 구조만 |
 | 디자인 토큰 (컬러, 타이포, 라벨) | ✅ | `frontend/constants/` |
+| `ios/Podfile` git 추적 (fmt consteval 패치 포함) | ✅ | `frontend/ios/Podfile` — Xcode 26 + RN 0.76 호환성 패치 내장 |
+| Android `minSdkVersion` 26 설정 | ✅ | `frontend/app.json` — `react-native-health-connect` 요구사항 |
+| 스플래시 플레이스홀더 이미지 | ✅ | `frontend/assets/splash.png` — 팀 디자인 확정 후 교체 필요 |
+| `tar` v6 override (expo prebuild 수정) | ✅ | `frontend/package.json` — Node 22 + `@expo/cli` 호환성 |
 
 ### 2-2. 화면 구현 상태
 
@@ -179,7 +183,16 @@
 | 기록 (히스토리) | 🔧 | `frontend/app/(main)/history.tsx` |
 | 마이페이지 | 🔧 | `frontend/app/(main)/profile.tsx` |
 
-### 2-3. 공통 컴포넌트
+### 2-3. 빌드 환경 현황 (2026-05-23 기준)
+
+| 플랫폼 | 상태 | 비고 |
+|--------|------|------|
+| iOS 시뮬레이터 | ✅ | Xcode 26 + RN 0.76 fmt consteval 패치 완료. `npx expo start → i` |
+| Android 에뮬레이터 | ✅ | `minSdkVersion 26`, 스플래시 이미지 설정 완료. `npx expo start → a` |
+
+> 최초 실행 시에만 `npx expo run:ios` / `npx expo run:android` 필요. 이후 일상 개발은 `npx expo start`. 상세 절차는 `docs/setup_guide.md` 참조.
+
+### 2-4. 공통 컴포넌트
 
 | 컴포넌트 | 상태 | 파일 |
 |----------|------|------|
@@ -192,7 +205,7 @@
 | TimeField (시간 입력) | ✅ | `frontend/components/ui/TimeField.tsx` |
 | PlaceholderScreen | ✅ | `frontend/components/ui/PlaceholderScreen.tsx` |
 
-### 2-4. 미구현 기능
+### 2-5. 미구현 기능
 
 | 기능 | 비고 |
 |------|------|
@@ -233,8 +246,13 @@
 | 항목 | 위치 | 설명 |
 |------|------|------|
 | ~~DB 커밋 누락 가능성~~ | ~~여러 라우터~~ | ✅ 해결됨 — `get_db()`가 `await session.commit()` 자동 처리 |
+| ~~session.tsx 완료 플로우 버그~~ | ~~`frontend/app/(main)/session.tsx`~~ | ✅ 해결됨 — `router.replace` 위치 수정, 실패 시 Alert 추가 |
+| ~~api.ts null assertion~~ | ~~`frontend/services/api.ts`~~ | ✅ 해결됨 — `toAuthSession` null guard 추가, refresh 실패 시 자동 로그아웃 |
+| ~~로그아웃 스토어 미초기화~~ | ~~`frontend/store/authStore.ts`~~ | ✅ 해결됨 — 로그아웃 시 워크아웃·뱃지 스토어 reset 추가 |
+| ~~useLoopAnimation 메모리 누수~~ | ~~`frontend/hooks/useLoopAnimation.ts`~~ | ✅ 해결됨 — cleanup + deps 배열 추가 |
+| ~~개발용 버튼 프로덕션 노출~~ | ~~`frontend/app/(auth)/login.tsx`~~ | ✅ 해결됨 — `__DEV__` 가드 추가 |
 | 커뮤니티 모델 | `backend/app/models/community.py` | MVP 이후 스코프이나 라우터에 등록돼 있음 |
 | JWT 무효화 (로그아웃) | `backend/app/routers/auth.py` | refresh token 폐기 메커니즘 없음 — 60분 만료 후 강제 로그아웃 |
-| Refresh token 갱신 프론트 미구현 | `frontend/services/api.ts` | 401 시 자동 재발급 로직 없음 |
 | 온보딩 필수 필드 수집 화면 없음 | `frontend/store/onboardingStore.ts` | `age`, `gender`, `goal`, `character_emoji` store 필드는 있으나 입력 UI 미구현 |
+| 스플래시 이미지 미확정 | `frontend/assets/splash.png` | 현재 단색 플레이스홀더 — 팀 디자인 완성 후 교체 필요 |
 | `.env`에 `CORS_ORIGINS` 미설정 | `backend/.env` | 기본값(localhost) 사용 중 — 프로덕션 배포 전 설정 필요 |

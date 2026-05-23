@@ -8,6 +8,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#f0f4ff"
     },
@@ -47,6 +48,14 @@
           "isClinicalDataEnabled": false,
           "healthSharePermission": "운동 전후 케어를 위해 건강 데이터를 읽어옵니다.",
           "healthUpdatePermission": "운동 기록을 건강 앱에 저장합니다."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
         }
       ],
       "expo-asset",
