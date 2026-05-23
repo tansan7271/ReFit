@@ -30,6 +30,7 @@ yarn-error.*
 .env
 .env.local
 
-# EAS
+# EAS — 생성된 네이티브 파일은 무시하되 Podfile은 커밋
 ios/
+!ios/Podfile
 android/
