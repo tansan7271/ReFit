@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.models.notification import NotificationSetting, PushToken
-from app.models.workout import WorkoutSession
+from app.models.workout import WorkoutSession, SessionStatus
 from app.services.fcm_service import fcm_service
 
 logger = logging.getLogger(__name__)
@@ -34,9 +34,23 @@ def _get_session_factory() -> async_sessionmaker:
     return _session_factory
 
 
+def _calculate_fatigue(session: WorkoutSession) -> float:
+    """피로도 점수 계산. 5.0 이상이면 고강도로 판정."""
+    volume_score = (session.total_volume_kg or 0) / 50
+    duration_score = ((session.total_duration_sec or 0) / 60) / 20
+    return volume_score + duration_score
+
+
 async def _send_workout_reminders() -> None:
-    """매분 실행 — workout_reminder_time이 현재 UTC 시각(HH:MM)인 유저에게 FCM 발송."""
-    current_hhmm = datetime.now(timezone.utc).strftime("%H:%M")
+    """매분 실행 — workout_reminder_time이 현재 UTC 시각(HH:MM)인 유저에게 FCM 발송.
+    직전 24시간 이내 고강도 운동(피로도 >= 5.0)이 있으면 회복 알림으로 대체."""
+    now = datetime.now(timezone.utc)
+    current_hhmm = now.strftime("%H:%M")
+    yesterday = now - timedelta(hours=24)
+
+    # (token_str, is_high_fatigue) 목록 구성
+    reminders: list[tuple[str, bool]] = []
+
     async with _get_session_factory()() as db:
         result = await db.execute(
             select(NotificationSetting, PushToken)
@@ -49,15 +63,41 @@ async def _send_workout_reminders() -> None:
         )
         rows = result.all()
 
-    for _setting, token in rows:
-        await fcm_service.send(
-            token=token.token,
-            title="운동할 시간이에요! 💪",
-            body="오늘 루틴을 시작해볼까요? 지금 바로 시작하면 캐릭터가 성장해요.",
-            data={"type": "workout_reminder"},
-        )
-    if rows:
-        logger.info("[Scheduler] workout_reminder 발송: %d건", len(rows))
+        for setting, token in rows:
+            last_result = await db.execute(
+                select(WorkoutSession)
+                .where(
+                    WorkoutSession.user_id == setting.user_id,
+                    WorkoutSession.status == SessionStatus.COMPLETED,
+                    WorkoutSession.ended_at >= yesterday,
+                )
+                .order_by(WorkoutSession.ended_at.desc())
+                .limit(1)
+            )
+            last_session = last_result.scalar_one_or_none()
+            is_high_fatigue = (
+                _calculate_fatigue(last_session) >= 5.0 if last_session else False
+            )
+            reminders.append((token.token, is_high_fatigue))
+
+    for token_str, is_high_fatigue in reminders:
+        if is_high_fatigue:
+            await fcm_service.send(
+                token=token_str,
+                title="오늘은 가볍게 회복하는 날이에요 💆",
+                body="어제 열심히 운동했어요! 오늘은 스트레칭이나 가벼운 유산소로 근육을 풀어주세요.",
+                data={"type": "recovery_reminder"},
+            )
+        else:
+            await fcm_service.send(
+                token=token_str,
+                title="운동할 시간이에요! 💪",
+                body="오늘 루틴을 시작해볼까요? 지금 바로 시작하면 캐릭터가 성장해요.",
+                data={"type": "workout_reminder"},
+            )
+    if reminders:
+        high = sum(1 for _, f in reminders if f)
+        logger.info("[Scheduler] workout_reminder 발송: %d건 (회복 %d건)", len(reminders), high)
 
 
 async def _send_sleep_reminders() -> None:
@@ -115,6 +155,34 @@ async def _send_inactivity_reminders() -> None:
         )
     if tokens:
         logger.info("[Scheduler] inactivity_reminder 발송: %d건", len(tokens))
+
+
+async def _send_aftercare_fcm(token: str) -> None:
+    """운동 완료 N시간 후 회복 케어 알림."""
+    await fcm_service.send(
+        token=token,
+        title="회복도 운동이에요 💆",
+        body="물 충분히 마시고, 단백질 섭취와 스트레칭으로 근육 회복을 도와주세요!",
+        data={"type": "aftercare_reminder"},
+    )
+
+
+def schedule_aftercare_notification(user_id: int, tokens: list[str], delay_hours: int = 8) -> None:
+    """운동 완료 후 delay_hours 시간 뒤 회복 알림 예약."""
+    if not _scheduler or not _scheduler.running:
+        return
+    run_at = datetime.now(timezone.utc) + timedelta(hours=delay_hours)
+    for token in tokens:
+        job_id = f"aftercare_{user_id}_{token[:8]}_{int(run_at.timestamp())}"
+        _scheduler.add_job(
+            _send_aftercare_fcm,
+            "date",
+            run_date=run_at,
+            args=[token],
+            id=job_id,
+            replace_existing=True,
+        )
+    logger.info("[Scheduler] aftercare 예약: user_id=%d, %d건, %dh 후", user_id, len(tokens), delay_hours)
 
 
 def start_scheduler() -> AsyncIOScheduler:
