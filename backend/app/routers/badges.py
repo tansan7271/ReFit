@@ -7,7 +7,8 @@ from app.core.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.badge import Badge, UserBadge
-from app.schemas.badge import BadgeResponse, UserBadgeResponse, BadgeEquipRequest
+from app.schemas.badge import BadgeResponse, UserBadgeResponse, BadgeEquipRequest, BadgeCheckResponse
+from app.services.badge_service import check_and_award_badges
 
 router = APIRouter(prefix="/badges", tags=["Badges"])
 
@@ -35,6 +36,19 @@ async def get_my_badges(
         .order_by(UserBadge.earned_at.desc())
     )
     return result.scalars().all()
+
+
+@router.post("/check", response_model=BadgeCheckResponse)
+async def check_my_badges(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """현재 유저의 뱃지 달성 조건 전체 판별. 새로 획득된 뱃지 자동 지급 및 FCM 발송."""
+    newly_earned = await check_and_award_badges(current_user, db)
+    return BadgeCheckResponse(
+        newly_earned=[BadgeResponse.model_validate(b) for b in newly_earned],
+        earned_count=len(newly_earned),
+    )
 
 
 @router.post("/me/equip", response_model=UserBadgeResponse)
