@@ -92,3 +92,10 @@ class SleepSyncResponse(BaseModel):
     created: int   # 신규 저장된 레코드 수
     skipped: int   # 이미 존재해서 건너뛴 레코드 수 (멱등 처리)
     total: int     # 요청에 포함된 전체 레코드 수
+
+
+class SleepAnalysisResponse(BaseModel):
+    ai_message: str
+    avg_duration_minutes: float
+    avg_quality_score: float | None
+    period_days: int

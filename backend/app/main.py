@@ -8,13 +8,14 @@ from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.core.rate_limit import limiter
 from app.routers import auth, users, workouts, sleep, badges, community, notifications
+from app.services.scheduler_service import start_scheduler, stop_scheduler
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # startup: DB 연결 확인은 alembic 마이그레이션으로 처리
+    start_scheduler()
     yield
-    # shutdown
+    stop_scheduler()
 
 
 app = FastAPI(
