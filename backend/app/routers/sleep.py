@@ -8,8 +8,9 @@ from app.models.user import User
 from app.models.sleep import SleepRecord, SleepQuality
 from app.schemas.sleep import (
     SleepRecordCreate, SleepRecordResponse, SleepStatResponse,
-    SleepSyncRequest, SleepSyncResponse,
+    SleepSyncRequest, SleepSyncResponse, SleepAnalysisResponse,
 )
+from app.services.gemini_service import gemini_service
 
 router = APIRouter(prefix="/sleep", tags=["Sleep"])
 
@@ -137,6 +138,44 @@ async def get_sleep_stats(
     return SleepStatResponse(
         total_records=count or 0,
         avg_duration_minutes=round(avg_dur or 0, 1),
+        avg_quality_score=round(avg_score, 1) if avg_score else None,
+        period_days=days,
+    )
+
+
+@router.get("/analysis", response_model=SleepAnalysisResponse)
+async def get_sleep_analysis(
+    days: int = 7,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """최근 수면 통계 기반 Gemini AI 분석 메시지."""
+    from datetime import datetime, timedelta, timezone
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    result = await db.execute(
+        select(
+            func.count(SleepRecord.id),
+            func.avg(SleepRecord.duration_minutes),
+            func.avg(SleepRecord.quality_score),
+        ).where(
+            SleepRecord.user_id == current_user.id,
+            SleepRecord.sleep_start >= since,
+        )
+    )
+    count, avg_dur, avg_score = result.one()
+    avg_dur = avg_dur or 0.0
+    goal_hours = (current_user.sleep_goal_minutes / 60) if current_user.sleep_goal_minutes else None
+
+    ai_message = await gemini_service.sleep_analysis_message(
+        nickname=current_user.nickname,
+        avg_duration_hours=avg_dur / 60,
+        avg_quality_score=avg_score,
+        goal_hours=goal_hours,
+    )
+    return SleepAnalysisResponse(
+        ai_message=ai_message,
+        avg_duration_minutes=round(avg_dur, 1),
         avg_quality_score=round(avg_score, 1) if avg_score else None,
         period_days=days,
     )
