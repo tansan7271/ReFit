@@ -17,7 +17,10 @@ from app.schemas.workout import (
     WorkoutPlanCreate, WorkoutPlanUpdate, WorkoutPlanResponse,
     SessionStartRequest, SessionCompleteRequest,
     WorkoutSessionResponse, WorkoutSessionSummary,
+    PreWorkoutMessageResponse,
 )
+from app.services.gemini_service import gemini_service
+from app.services.weather_service import weather_service
 
 router = APIRouter(prefix="/workouts", tags=["Workouts"])
 
@@ -193,10 +196,21 @@ async def complete_session(
 
     session.total_volume_kg = total_volume or None
     # XP: 완료 세트 × 10 + 기본 50
-    xp = 50 + sum(1 for s in body.sets if s.is_completed) * 10
+    completed_sets = sum(1 for s in body.sets if s.is_completed)
+    xp = 50 + completed_sets * 10
     session.xp_earned = xp
     current_user.character_xp += xp
     current_user.character_level = 1 + current_user.character_xp // 500
+
+    duration_min = (session.total_duration_sec or 0) // 60
+    session.ai_feedback = await gemini_service.post_workout_message(
+        nickname=current_user.nickname,
+        character_emoji=current_user.character_emoji,
+        duration_min=duration_min,
+        total_volume_kg=session.total_volume_kg,
+        xp_earned=xp,
+        completed_sets=completed_sets,
+    )
 
     db.add(session)
     db.add(current_user)
@@ -235,3 +249,37 @@ async def get_session_detail(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     return session
+
+
+# ── AI Pre-Workout Message ─────────────────────────────────────────────────────
+
+@router.get("/pre-message", response_model=PreWorkoutMessageResponse)
+async def get_pre_workout_message(
+    lat: float | None = None,
+    lon: float | None = None,
+    city: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """운동 시작 전 Gemini AI 동기부여 메시지. 날씨 정보가 있으면 함께 반영."""
+    from datetime import date
+    today_dow = date.today().weekday()  # 0=월 ~ 6=일
+
+    plan_result = await db.execute(
+        select(WorkoutPlan)
+        .where(WorkoutPlan.user_id == current_user.id, WorkoutPlan.day_of_week == today_dow)
+    )
+    plan = plan_result.scalar_one_or_none()
+    plan_name = plan.name if plan else None
+
+    weather_info = await weather_service.get_weather(city=city, lat=lat, lon=lon)
+    weather_desc = weather_service.describe(weather_info) if weather_info else None
+
+    message = await gemini_service.pre_workout_message(
+        nickname=current_user.nickname,
+        character_emoji=current_user.character_emoji,
+        fitness_level=current_user.fitness_level.value,
+        plan_name=plan_name,
+        weather_desc=weather_desc,
+    )
+    return PreWorkoutMessageResponse(message=message, plan_name=plan_name, weather_desc=weather_desc)

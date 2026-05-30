@@ -135,3 +135,9 @@ class WorkoutSessionSummary(BaseModel):
     xp_earned: int
 
     model_config = {"from_attributes": True}
+
+
+class PreWorkoutMessageResponse(BaseModel):
+    message: str
+    plan_name: str | None = None
+    weather_desc: str | None = None
