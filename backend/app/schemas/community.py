@@ -41,3 +41,18 @@ class PokeResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class FriendActivityResponse(BaseModel):
+    user_id: int
+    nickname: str
+    character_emoji: str
+    character_level: int
+    workout_count_this_week: int
+    last_worked_out_at: datetime | None
+    worked_out_today: bool
+
+
+class CoopCelebrateResponse(BaseModel):
+    both_worked_out_today: bool
+    message: str

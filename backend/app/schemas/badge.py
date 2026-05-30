@@ -29,3 +29,8 @@ class UserBadgeResponse(BaseModel):
 
 class BadgeEquipRequest(BaseModel):
     badge_id: int
+
+
+class BadgeCheckResponse(BaseModel):
+    newly_earned: list[BadgeResponse]
+    earned_count: int

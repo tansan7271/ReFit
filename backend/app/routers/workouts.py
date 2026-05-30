@@ -12,6 +12,7 @@ from app.models.workout import (
     Exercise, WorkoutPlan, WorkoutPlanExercise,
     WorkoutSession, WorkoutSet, SessionStatus,
 )
+from app.models.notification import PushToken, NotificationSetting
 from app.schemas.workout import (
     ExerciseResponse,
     WorkoutPlanCreate, WorkoutPlanUpdate, WorkoutPlanResponse,
@@ -21,6 +22,8 @@ from app.schemas.workout import (
 )
 from app.services.gemini_service import gemini_service
 from app.services.weather_service import weather_service
+from app.services.badge_service import check_and_award_badges
+from app.services.scheduler_service import schedule_aftercare_notification
 
 router = APIRouter(prefix="/workouts", tags=["Workouts"])
 
@@ -215,6 +218,25 @@ async def complete_session(
     db.add(session)
     db.add(current_user)
     await db.flush()
+
+    # 뱃지 달성 조건 판별 (XP 업데이트 후)
+    await check_and_award_badges(current_user, db)
+
+    # 애프터케어 알림 예약 — ai_coaching 알림 켜진 유저만
+    setting_result = await db.execute(
+        select(NotificationSetting).where(NotificationSetting.user_id == current_user.id)
+    )
+    setting = setting_result.scalar_one_or_none()
+    if setting and setting.ai_coaching:
+        token_result = await db.execute(
+            select(PushToken).where(
+                PushToken.user_id == current_user.id, PushToken.is_active == True
+            )
+        )
+        tokens = [t.token for t in token_result.scalars().all()]
+        if tokens:
+            schedule_aftercare_notification(current_user.id, tokens)
+
     await db.refresh(session, ["sets"])
     return session
 
