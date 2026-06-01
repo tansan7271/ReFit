@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -5,7 +6,15 @@ import { useRouter } from 'expo-router';
 import { colors } from '@/constants/colors';
 import { fontSize, fontWeight, spacing } from '@/constants/typography';
 import { useLoopAnimation } from '@/hooks/useLoopAnimation';
+import { fetchSleepStats } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
+import { useWorkoutStore } from '@/store/workoutStore';
+import type { SleepStats } from '@/types';
+
+type CharStatus = 'workout_done' | 'sleep_low' | 'normal';
+
+const SLEEP_LOW_THRESHOLD = 360;
+const FALLBACK_CHIPS = ['🍌 탄수 보충', '🧘 스트레칭', '💧 수분'];
 
 const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 
@@ -13,6 +22,52 @@ export default function HomeScreen() {
   const router = useRouter();
   const floatAnim = useLoopAnimation(-7, 1500);
   const user = useAuthStore((s) => s.user);
+  const sessions = useWorkoutStore((s) => s.sessions);
+  const fetchSessions = useWorkoutStore((s) => s.fetchSessions);
+
+  const [sleepStats, setSleepStats] = useState<SleepStats | null>(null);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
+
+  useEffect(() => {
+    let active = true;
+    fetchSleepStats(1)
+      .then((stats) => {
+        if (active) setSleepStats(stats);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const todayStr = new Date().toDateString();
+  const hasWorkoutToday = sessions.some(
+    (s) =>
+      s.status === 'completed' &&
+      new Date(s.started_at).toDateString() === todayStr,
+  );
+
+  const hasSleepData = sleepStats !== null && sleepStats.total_records > 0;
+  const sleepLow = hasSleepData && sleepStats.avg_duration_minutes < SLEEP_LOW_THRESHOLD;
+
+  const charStatus: CharStatus = hasWorkoutToday
+    ? 'workout_done'
+    : sleepLow
+      ? 'sleep_low'
+      : 'normal';
+
+  const bannerChips = !hasSleepData
+    ? FALLBACK_CHIPS
+    : sleepLow
+      ? ['😴 수면 부족 주의', '🍌 탄수 보충', '💧 수분 보충']
+      : ['🧘 스트레칭', '💧 수분 보충', '⚡ 컨디션 양호'];
+
+  const bannerMsg = sleepLow
+    ? '어제 수면이 부족했어요.\n오늘은 강도를 조금 낮춰봐요!'
+    : '오늘 운동 전에\n컨디션을 체크해봐요!';
 
   const todayDow = new Date().getDay(); // 0=일 ~ 6=토
   // 백엔드 day_of_week: 0=월 ~ 6=일, JS: 0=일 ~ 6=토
@@ -46,18 +101,28 @@ export default function HomeScreen() {
         <View style={styles.body}>
           {/* 케어 배너 */}
           <View style={styles.careBanner}>
-            <Animated.Text
-              style={[styles.bannerChar, { transform: [{ translateY: floatAnim }] }]}
-            >
-              {charEmoji}
-            </Animated.Text>
+            <View style={styles.bannerCharCol}>
+              <Animated.Text
+                style={[styles.bannerChar, { transform: [{ translateY: floatAnim }] }]}
+              >
+                {charEmoji}
+              </Animated.Text>
+              {charStatus === 'workout_done' && (
+                <View style={[styles.statusBadge, { backgroundColor: colors.softGreen }]}>
+                  <Text style={[styles.statusBadgeText, { color: colors.green }]}>⭐ 운동 완료</Text>
+                </View>
+              )}
+              {charStatus === 'sleep_low' && (
+                <View style={[styles.statusBadge, { backgroundColor: colors.softAmber }]}>
+                  <Text style={[styles.statusBadgeText, { color: '#e65100' }]}>😴 수면 부족</Text>
+                </View>
+              )}
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.bannerTag}>⚡ 운동 전 케어</Text>
-              <Text style={styles.bannerMsg}>
-                {'오늘 운동 전에\n컨디션을 체크해봐요!'}
-              </Text>
+              <Text style={styles.bannerMsg}>{bannerMsg}</Text>
               <View style={styles.bannerChips}>
-                {['🍌 탄수 보충', '🧘 스트레칭', '💧 수분'].map((chip) => (
+                {bannerChips.map((chip) => (
                   <View key={chip} style={styles.bannerChip}>
                     <Text style={styles.bannerChipText}>{chip}</Text>
                   </View>
@@ -138,7 +203,14 @@ const styles = StyleSheet.create({
     gap: 9,
     alignItems: 'flex-start',
   },
+  bannerCharCol: { alignItems: 'center', gap: 4 },
   bannerChar: { fontSize: 26 },
+  statusBadge: {
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  statusBadgeText: { fontSize: 11, fontWeight: fontWeight.bold },
   bannerTag: {
     fontSize: 10,
     color: 'rgba(255,255,255,0.7)',

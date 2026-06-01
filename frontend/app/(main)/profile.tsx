@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -7,9 +13,11 @@ import { colors } from '@/constants/colors';
 import { fontSize, fontWeight, spacing } from '@/constants/typography';
 import { MenuSection } from '@/components/ui/MenuSection';
 import { InBodyModal } from '@/components/modals/InBodyModal';
+import { ProfileEditModal } from '@/components/modals/ProfileEditModal';
+import { NotificationSettingsModal } from '@/components/modals/NotificationSettingsModal';
 import { fetchInbodyHistory } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
-import type { InBodyRecord } from '@/types';
+import type { InBodyRecord, User } from '@/types';
 
 const FITNESS_LEVEL_LABEL: Record<string, string> = {
   beginner: '초보자',
@@ -21,9 +29,12 @@ const FITNESS_LEVEL_LABEL: Record<string, string> = {
 export default function ProfileScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
   const signOut = useAuthStore((s) => s.signOut);
   const [inbodyVisible, setInbodyVisible] = useState(false);
   const [latestInbody, setLatestInbody] = useState<InBodyRecord | null>(null);
+  const [profileEditVisible, setProfileEditVisible] = useState(false);
+  const [notifVisible, setNotifVisible] = useState(false);
 
   useEffect(() => {
     fetchInbodyHistory(1)
@@ -34,6 +45,10 @@ export default function ProfileScreen() {
   const handleSaveInbody = (record: InBodyRecord) => {
     setLatestInbody(record);
     setInbodyVisible(false);
+  };
+
+  const handleSaveProfile = (updated: User) => {
+    setUser(updated);
   };
 
   const nickname = user?.nickname ?? '–';
@@ -58,7 +73,7 @@ export default function ProfileScreen() {
                 {user?.character_xp ?? 0} XP 획득
               </Text>
             </View>
-            <TouchableOpacity style={styles.editBtn}>
+            <TouchableOpacity style={styles.editBtn} onPress={() => setProfileEditVisible(true)}>
               <Text style={styles.editBtnText}>수정</Text>
             </TouchableOpacity>
           </View>
@@ -158,7 +173,13 @@ export default function ProfileScreen() {
           <MenuSection
             label="환경 설정"
             items={[
-              { icon: '🔔', bg: colors.softBlue, name: '알림 설정', meta: '보통' },
+              {
+                icon: '🔔',
+                bg: colors.softBlue,
+                name: '알림 설정',
+                meta: '보통',
+                onPress: () => setNotifVisible(true),
+              },
               { icon: '📱', bg: '#fff0f0', name: '헬스 앱 연동', meta: 'Apple Health' },
               { icon: '🔒', bg: colors.softAmber, name: '개인정보 · 데이터' },
             ]}
@@ -187,6 +208,19 @@ export default function ProfileScreen() {
         visible={inbodyVisible}
         onClose={() => setInbodyVisible(false)}
         onSave={handleSaveInbody}
+      />
+
+      <ProfileEditModal
+        visible={profileEditVisible}
+        onClose={() => setProfileEditVisible(false)}
+        onSave={handleSaveProfile}
+        currentNickname={user?.nickname ?? ''}
+        currentAge={user?.age ?? undefined}
+      />
+
+      <NotificationSettingsModal
+        visible={notifVisible}
+        onClose={() => setNotifVisible(false)}
       />
     </SafeAreaView>
   );

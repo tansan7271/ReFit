@@ -16,6 +16,7 @@ interface WorkoutState {
   plans: WorkoutPlan[];
   sessions: WorkoutSessionSummary[];
   currentSessionId: number | null;
+  lastSession: WorkoutSessionSummary | null;
   plansLoading: boolean;
   sessionsLoading: boolean;
   plansLoaded: boolean;
@@ -26,6 +27,7 @@ interface WorkoutState {
   fetchSessions: (force?: boolean) => Promise<void>;
   startSession: (planId?: number) => Promise<number | null>;
   setCurrentSessionId: (id: number | null) => void;
+  setLastSession: (session: WorkoutSessionSummary) => void;
   reset: () => void;
 }
 
@@ -33,6 +35,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   plans: [],
   sessions: [],
   currentSessionId: null,
+  lastSession: null,
   plansLoading: false,
   sessionsLoading: false,
   plansLoaded: false,
@@ -41,6 +44,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   fetchPlans: async (force = false) => {
     if (!force && get().plansLoaded) return;
+    if (get().plansLoading) return;
     set({ plansLoading: true, error: null });
     try {
       const plans = await fetchWorkoutPlans();
@@ -54,6 +58,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   fetchSessions: async (force = false) => {
     if (!force && get().sessionsLoaded) return;
+    if (get().sessionsLoading) return;
     set({ sessionsLoading: true, error: null });
     try {
       const sessions = await fetchWorkoutSessions();
@@ -77,13 +82,18 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   setCurrentSessionId: (id) => set({ currentSessionId: id }),
 
+  setLastSession: (session) => set({ lastSession: session }),
+
   reset: () =>
     set({
       plans: [],
       sessions: [],
       currentSessionId: null,
+      lastSession: null,
       plansLoaded: false,
       sessionsLoaded: false,
+      plansLoading: false,
+      sessionsLoading: false,
       error: null,
     }),
 }));

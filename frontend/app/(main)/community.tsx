@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,34 +12,115 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/colors';
 import { fontSize, fontWeight, spacing } from '@/constants/typography';
+import { coopCelebrate, fetchFriendActivity } from '@/services/api';
+import { useCommunityStore } from '@/store/communityStore';
+import { useWorkoutStore } from '@/store/workoutStore';
+import type { FriendActivity } from '@/types';
 
 type Tab = 'friends' | 'pokes' | 'coop';
 
-const FRIENDS = [
-  { avatar: '🦊', name: '지우', status: '● 지금 러닝 중 · 3.2km', isLive: true, bg: '#fff0e0' },
-  { avatar: '🐰', name: '민서', status: '오늘 운동 완료 · 어깨 데이', isLive: false, bg: '#ffe0eb' },
-  { avatar: '🐱', name: '준호', status: '7일 연속 운동 중 🔥', isLive: false, bg: '#e3f2fd' },
-  { avatar: '🐶', name: '하은', status: '오늘은 휴식일', isLive: false, bg: '#e8f5ee' },
-  { avatar: '🐻', name: '서연', status: '2일 전 운동', isLive: false, bg: '#fff8e8' },
-];
+const FRIEND_AVATAR_BG = '#f0f4ff';
 
-const POKES = [
-  { avatar: '🦊', name: '지우', msg: '응원을 보냈어요', time: '5분 전' },
-  { avatar: '🐰', name: '민서', msg: '콕! 찔렀어요', time: '2시간 전' },
-  { avatar: '🐱', name: '준호', msg: '응원해요', time: '어제' },
-];
+/** 백엔드 ISO 시각을 "n분 전 / n시간 전 / n일 전" 한국어 상대시각으로 변환 */
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return '방금 전';
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  return `${Math.floor(hr / 24)}일 전`;
+}
 
 export default function CommunityScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('friends');
-  const [pokedSet, setPokedSet] = useState<Set<number>>(new Set([2]));
+  const friends = useCommunityStore((s) => s.friends);
+  const pokes = useCommunityStore((s) => s.pokes);
+  const friendsLoading = useCommunityStore((s) => s.friendsLoading);
+  const pokesLoading = useCommunityStore((s) => s.pokesLoading);
+  const sentPokeIds = useCommunityStore((s) => s.sentPokeIds);
+  const fetchFriendsAction = useCommunityStore((s) => s.fetchFriends);
+  const fetchPokesAction = useCommunityStore((s) => s.fetchPokes);
+  const sendPokeToUser = useCommunityStore((s) => s.sendPokeToUser);
 
-  const handlePoke = (idx: number) => {
-    setPokedSet((prev) => new Set([...prev, idx]));
+  const sessions = useWorkoutStore((s) => s.sessions);
+  const fetchSessions = useWorkoutStore((s) => s.fetchSessions);
+
+  const [activities, setActivities] = useState<Record<number, FriendActivity>>({});
+  const activitiesRef = useRef<Record<number, FriendActivity>>({});
+  const [coopLoading, setCoopLoading] = useState(false);
+  const [celebratedIds, setCelebratedIds] = useState<number[]>([]);
+
+  const myWorkedOutToday = sessions.some(
+    (s) =>
+      s.status === 'completed' &&
+      new Date(s.started_at).toDateString() === new Date().toDateString(),
+  );
+
+  useEffect(() => {
+    fetchFriendsAction();
+    fetchPokesAction();
+  }, [fetchFriendsAction, fetchPokesAction]);
+
+  useEffect(() => {
+    if (activeTab !== 'coop') return;
+    fetchSessions();
+    const missing = friends.filter((f) => !(f.user_id in activitiesRef.current));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    setCoopLoading(true);
+    Promise.all(
+      missing.map(async (f) => {
+        try {
+          const activity = await fetchFriendActivity(f.user_id);
+          return [f.user_id, activity] as const;
+        } catch (error) {
+          console.warn('[community] fetchFriendActivity failed', error);
+          return null;
+        }
+      }),
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const next = { ...activitiesRef.current };
+        for (const r of results) {
+          if (r) next[r[0]] = r[1];
+        }
+        activitiesRef.current = next;
+        setActivities({ ...next });
+      })
+      .finally(() => {
+        if (!cancelled) setCoopLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, friends]);
+
+  const handleCoopCelebrate = async (friendId: number) => {
+    if (celebratedIds.includes(friendId)) return;
+    setCelebratedIds((prev) => [...prev, friendId]);
+    try {
+      const response = await coopCelebrate(friendId);
+      Alert.alert('🎉 Co-op 달성!', response.message);
+    } catch {
+      setCelebratedIds((prev) => prev.filter((id) => id !== friendId));
+      Alert.alert('오류', '잠시 후 다시 시도해 주세요.');
+    }
+  };
+
+  const handlePoke = (userId: number) => {
+    if (sentPokeIds.includes(userId)) return;
+    sendPokeToUser(userId);
+  };
+
+  const handleAddFriend = () => {
+    Alert.alert('친구 추가', '닉네임으로 친구 추가 기능을 준비 중이에요');
   };
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'friends', label: '친구 (5)' },
-    { key: 'pokes', label: '받은 응원 3' },
+    { key: 'friends', label: `친구 (${friends.length})` },
+    { key: 'pokes', label: `받은 응원 ${pokes.length}` },
     { key: 'coop', label: 'Co-op 뱃지' },
   ];
 
@@ -84,50 +167,59 @@ export default function CommunityScreen() {
             <View>
               <View style={styles.sectionRow}>
                 <Text style={styles.sectionTitle}>🐾 친구 목록</Text>
-                <Text style={styles.sectionCount}>· 5명</Text>
+                <Text style={styles.sectionCount}>· {friends.length}명</Text>
               </View>
-              <View style={styles.friendList}>
-                {FRIENDS.map((f, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.friendRow,
-                      i === FRIENDS.length - 1 && { borderBottomWidth: 0 },
-                    ]}
-                  >
-                    <View style={[styles.friendAvatar, { backgroundColor: f.bg }]}>
-                      <Text style={{ fontSize: 22 }}>{f.avatar}</Text>
-                      {f.isLive && <View style={styles.liveIndicator} />}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.friendName}>{f.name}</Text>
-                      <Text
-                        style={[styles.friendStatus, f.isLive && { color: '#4caf50' }]}
-                      >
-                        {f.status}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => !pokedSet.has(i) && handlePoke(i)}
-                      style={[styles.pokeBtn, pokedSet.has(i) && styles.pokeBtnSent]}
-                      disabled={pokedSet.has(i)}
-                    >
-                      <Text
+              {friendsLoading ? (
+                <ActivityIndicator />
+              ) : (
+                <View style={styles.friendList}>
+                  {friends.map((f, i) => {
+                    const alreadyPoked = sentPokeIds.includes(f.user_id);
+                    return (
+                      <View
+                        key={f.friendship_id}
                         style={[
-                          styles.pokeBtnText,
-                          pokedSet.has(i) && { color: colors.green },
+                          styles.friendRow,
+                          i === friends.length - 1 && { borderBottomWidth: 0 },
                         ]}
                       >
-                        {pokedSet.has(i) ? '✓ 보냄' : '💪 응원'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
+                        <View
+                          style={[
+                            styles.friendAvatar,
+                            { backgroundColor: FRIEND_AVATAR_BG },
+                          ]}
+                        >
+                          <Text style={{ fontSize: 22 }}>{f.character_emoji}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.friendName}>{f.nickname}</Text>
+                          <Text style={styles.friendStatus}>
+                            {`Lv.${f.character_level}`}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => handlePoke(f.user_id)}
+                          style={[styles.pokeBtn, alreadyPoked && styles.pokeBtnSent]}
+                          disabled={alreadyPoked || friendsLoading}
+                        >
+                          <Text
+                            style={[
+                              styles.pokeBtnText,
+                              alreadyPoked && { color: colors.green },
+                            ]}
+                          >
+                            {alreadyPoked ? '✓ 보냄' : '💪 응원'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
             </View>
 
             {/* 친구 추가 */}
-            <TouchableOpacity style={styles.addFriendBtn}>
+            <TouchableOpacity style={styles.addFriendBtn} onPress={handleAddFriend}>
               <Text style={styles.addFriendText}>＋ 친구 초대하기</Text>
             </TouchableOpacity>
           </View>
@@ -140,25 +232,33 @@ export default function CommunityScreen() {
               <View style={styles.pokeCardHeader}>
                 <Text style={styles.pokeCardTitle}>💌 받은 응원</Text>
                 <View style={styles.pokeCountBadge}>
-                  <Text style={styles.pokeCountText}>3 NEW</Text>
+                  <Text style={styles.pokeCountText}>{`${pokes.length} NEW`}</Text>
                 </View>
               </View>
-              {POKES.map((p, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.pokeRow,
-                    i === POKES.length - 1 && { borderBottomWidth: 0 },
-                  ]}
-                >
-                  <Text style={{ fontSize: 22 }}>{p.avatar}</Text>
-                  <Text style={styles.pokeMsg}>
-                    <Text style={{ fontWeight: fontWeight.heavy }}>{p.name}</Text>
-                    {`가 ${p.msg}`}
-                  </Text>
-                  <Text style={styles.pokeTime}>{p.time}</Text>
-                </View>
-              ))}
+              {pokesLoading ? (
+                <ActivityIndicator />
+              ) : pokes.length === 0 ? (
+                <Text style={styles.pokeMsg}>아직 받은 응원이 없어요</Text>
+              ) : (
+                pokes.map((p, i) => (
+                  <View
+                    key={p.id}
+                    style={[
+                      styles.pokeRow,
+                      i === pokes.length - 1 && { borderBottomWidth: 0 },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 22 }}>🙋</Text>
+                    <Text style={styles.pokeMsg}>
+                      <Text style={{ fontWeight: fontWeight.heavy }}>
+                        {`사용자 #${p.sender_id}`}
+                      </Text>
+                      {`가 ${p.message ?? '응원을 보냈어요'}`}
+                    </Text>
+                    <Text style={styles.pokeTime}>{relativeTime(p.created_at)}</Text>
+                  </View>
+                ))
+              )}
             </View>
           </View>
         )}
@@ -167,34 +267,90 @@ export default function CommunityScreen() {
         {activeTab === 'coop' && (
           <View style={styles.panel}>
             <View style={styles.coopCard}>
-              <View style={styles.coopHeader}>
-                <Text style={styles.coopTitle}>✨ 이번 주 Co-op 도전</Text>
-                <Text style={styles.coopWeek}>5/5 – 5/11</Text>
-              </View>
-              <View style={styles.coopTarget}>
-                <Text style={{ fontSize: 30 }}>🏆</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.coopTargetName}>함께 일주일 목표 달성</Text>
-                  <Text style={styles.coopTargetDesc}>
-                    지우, 민서와 같이 주 4회 운동 완료 시 특수 뱃지!
-                  </Text>
-                  <View style={styles.coopBar}>
-                    <View style={[styles.coopFill, { width: '65%' }]} />
-                  </View>
-                </View>
-              </View>
-              <Text style={styles.coopFooter}>
-                {'현재 '}
-                <Text style={{ color: colors.accent, fontWeight: fontWeight.heavy }}>
-                  2/4회
-                </Text>
-                {' · 모두 함께 달성 시 '}
-                <Text style={{ color: colors.accent, fontWeight: fontWeight.heavy }}>
-                  Co-op 뱃지 ✨
-                </Text>
-                {' 지급'}
+              <Text style={styles.coopTitle}>✨ Co-op 도전</Text>
+              <Text style={[styles.coopFooter, { textAlign: 'left', marginTop: 4 }]}>
+                {'나와 친구가 같은 날 운동을 완료하면\n함께 Co-op을 달성할 수 있어요!'}
               </Text>
             </View>
+
+            <View style={styles.coopMeCard}>
+              <Text style={{ fontSize: 22 }}>{myWorkedOutToday ? '🔥' : '💤'}</Text>
+              <Text style={styles.coopMeText}>
+                {myWorkedOutToday
+                  ? '오늘 운동 완료! 친구와 함께 달성해 보세요'
+                  : '오늘 운동을 완료하면 Co-op에 도전할 수 있어요'}
+              </Text>
+            </View>
+
+            {friends.length === 0 ? (
+              <View style={styles.coopCard}>
+                <Text style={[styles.coopFooter, { paddingVertical: 12 }]}>
+                  친구를 추가하면 Co-op 도전을 시작할 수 있어요!
+                </Text>
+              </View>
+            ) : coopLoading && Object.keys(activities).length === 0 ? (
+              <ActivityIndicator style={{ marginTop: 16 }} />
+            ) : (
+              friends.map((f) => {
+                const activity = activities[f.user_id];
+                const workedOutToday = activity?.worked_out_today ?? false;
+                const canCelebrate = myWorkedOutToday && workedOutToday;
+                const celebrated = celebratedIds.includes(f.user_id);
+                return (
+                  <View key={f.friendship_id} style={styles.coopFriendCard}>
+                    <View style={styles.coopFriendHeader}>
+                      <View
+                        style={[styles.friendAvatar, { backgroundColor: FRIEND_AVATAR_BG }]}
+                      >
+                        <Text style={{ fontSize: 22 }}>{f.character_emoji}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.friendName}>{f.nickname}</Text>
+                        {activity ? (
+                          <Text style={styles.friendStatus}>
+                            {`이번 주 ${activity.workout_count_this_week}회`}
+                          </Text>
+                        ) : (
+                          <Text style={styles.friendStatus}>활동 불러오는 중…</Text>
+                        )}
+                      </View>
+                      <View
+                        style={[
+                          styles.coopBadge,
+                          workedOutToday ? styles.coopBadgeDone : styles.coopBadgeIdle,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.coopBadgeText,
+                            { color: workedOutToday ? colors.green : colors.text3 },
+                          ]}
+                        >
+                          {workedOutToday ? '오늘 운동 완료 ✅' : '아직 운동 전'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {canCelebrate && (
+                      <TouchableOpacity
+                        style={[styles.coopBtn, celebrated && styles.coopBtnDone]}
+                        onPress={() => handleCoopCelebrate(f.user_id)}
+                        disabled={celebrated}
+                      >
+                        <Text
+                          style={[
+                            styles.coopBtnText,
+                            celebrated && { color: colors.green },
+                          ]}
+                        >
+                          {celebrated ? '✓ 달성 완료' : '🎉 함께 달성!'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })
+            )}
           </View>
         )}
       </ScrollView>
@@ -268,17 +424,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  liveIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#4caf50',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
   friendName: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.heavy,
@@ -346,39 +491,45 @@ const styles = StyleSheet.create({
   pokeTime: { fontSize: 9, color: colors.text3 },
   // Co-op tab
   coopCard: { backgroundColor: colors.card, borderRadius: 14, padding: 12 },
-  coopHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 9,
-  },
   coopTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.heavy, color: colors.text },
-  coopWeek: { fontSize: 10, color: colors.text3 },
-  coopTarget: {
+  coopFooter: { fontSize: 10, color: colors.text2, textAlign: 'center', lineHeight: 15 },
+  coopMeCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
-    backgroundColor: '#fff8e8',
-    borderRadius: 11,
-    paddingHorizontal: 11,
-    paddingVertical: 9,
+    backgroundColor: colors.softBlue,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderWidth: 1,
+    borderColor: '#cac6f8',
+  },
+  coopMeText: {
+    flex: 1,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.bold,
+    color: colors.accent,
+    lineHeight: 16,
+  },
+  coopFriendCard: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 12,
     borderWidth: 1.5,
-    borderColor: '#f5d060',
-    marginBottom: 8,
+    borderColor: colors.border,
+    gap: 9,
   },
-  coopTargetName: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.heavy,
-    color: colors.text,
-    marginBottom: 2,
+  coopFriendHeader: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  coopBadge: { borderRadius: 9, paddingHorizontal: 8, paddingVertical: 4 },
+  coopBadgeDone: { backgroundColor: colors.softGreen },
+  coopBadgeIdle: { backgroundColor: 'rgba(0,0,0,0.05)' },
+  coopBadgeText: { fontSize: 10, fontWeight: fontWeight.heavy },
+  coopBtn: {
+    backgroundColor: colors.accent,
+    borderRadius: 11,
+    paddingVertical: 10,
+    alignItems: 'center',
   },
-  coopTargetDesc: { fontSize: 10, color: colors.text2, lineHeight: 14, marginBottom: 5 },
-  coopBar: {
-    height: 5,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  coopFill: { height: 5, backgroundColor: colors.accent, borderRadius: 4 },
-  coopFooter: { fontSize: 10, color: colors.text2, textAlign: 'center', lineHeight: 15 },
+  coopBtnDone: { backgroundColor: colors.softGreen },
+  coopBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.heavy, color: '#fff' },
 });

@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { fetchMe } from '@/services/api';
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, storage } from '@/services/storage';
 import { useBadgeStore } from '@/store/badgeStore';
+import { useCommunityStore } from '@/store/communityStore';
 import { useWorkoutStore } from '@/store/workoutStore';
 import type { User } from '@/types';
 
@@ -60,6 +61,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     await storage.deleteItem(REFRESH_TOKEN_KEY);
     useWorkoutStore.getState().reset();
     useBadgeStore.getState().reset();
+    useCommunityStore.getState().reset();
     set({ status: 'unauthenticated', user: null });
   },
 }));

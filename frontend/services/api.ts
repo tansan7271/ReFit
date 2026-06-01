@@ -9,9 +9,17 @@ import { Platform } from 'react-native';
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, storage } from '@/services/storage';
 import type {
   Badge,
+  CoopCelebrateResponse,
+  Friend,
+  FriendActivity,
   InBodyInput,
   InBodyRecord,
+  NotificationSettings,
+  NotificationSettingsUpdate,
   OnboardingPayload,
+  Poke,
+  ProfileUpdatePayload,
+  SleepStats,
   User,
   UserBadge,
   WorkoutPlan,
@@ -151,6 +159,27 @@ export async function fetchMe(): Promise<User> {
   return data;
 }
 
+export async function updateProfile(payload: ProfileUpdatePayload): Promise<User> {
+  const { data } = await api.patch<User>('/users/me', payload);
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Notification Settings
+// ---------------------------------------------------------------------------
+
+export async function fetchNotificationSettings(): Promise<NotificationSettings> {
+  const { data } = await api.get<NotificationSettings>('/notifications/settings');
+  return data;
+}
+
+export async function updateNotificationSettings(
+  payload: NotificationSettingsUpdate,
+): Promise<NotificationSettings> {
+  const { data } = await api.patch<NotificationSettings>('/notifications/settings', payload);
+  return data;
+}
+
 // ---------------------------------------------------------------------------
 // Workout Plans
 // ---------------------------------------------------------------------------
@@ -163,6 +192,17 @@ export async function fetchWorkoutPlans(): Promise<WorkoutPlan[]> {
 // ---------------------------------------------------------------------------
 // Workout Sessions
 // ---------------------------------------------------------------------------
+
+export interface PreWorkoutMessage {
+  message: string;
+  plan_name: string | null;
+  weather_desc: string | null;
+}
+
+export async function fetchPreWorkoutMessage(): Promise<PreWorkoutMessage> {
+  const { data } = await api.get<PreWorkoutMessage>('/workouts/pre-message');
+  return data;
+}
 
 export async function fetchWorkoutSessions(limit = 20): Promise<WorkoutSessionSummary[]> {
   const { data } = await api.get<WorkoutSessionSummary[]>('/workouts/sessions', {
@@ -216,5 +256,82 @@ export async function fetchAllBadges(): Promise<Badge[]> {
 
 export async function fetchMyBadges(): Promise<UserBadge[]> {
   const { data } = await api.get<UserBadge[]>('/badges/me');
+  return data;
+}
+
+/**
+ * 배지 장착 — 한 번에 1개만 장착 가능(기존 장착은 자동 해제됨).
+ * 백엔드: POST /badges/me/equip { badge_id }
+ */
+export async function equipBadge(badgeId: number): Promise<UserBadge> {
+  const { data } = await api.post<UserBadge>('/badges/me/equip', { badge_id: badgeId });
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Community — Friends & Pokes
+// ---------------------------------------------------------------------------
+
+export async function fetchFriends(): Promise<Friend[]> {
+  const { data } = await api.get<Friend[]>('/community/friends');
+  return data;
+}
+
+/**
+ * 친구 요청 보내기.
+ * 백엔드는 닉네임이 아닌 `addressee_id`(상대 user_id)를 받는다.
+ * UI에서 닉네임으로 검색해야 한다면 별도의 사용자 검색 엔드포인트가 선행되어야 한다.
+ */
+export async function sendFriendRequest(addresseeId: number): Promise<void> {
+  await api.post('/community/friends/request', { addressee_id: addresseeId });
+}
+
+export async function acceptFriendRequest(friendshipId: number): Promise<void> {
+  await api.post(`/community/friends/${friendshipId}/accept`);
+}
+
+export async function removeFriend(friendshipId: number): Promise<void> {
+  await api.delete(`/community/friends/${friendshipId}`);
+}
+
+/**
+ * 콕 찌르기 보내기.
+ * 백엔드 필드명은 `receiver_id` (target_user_id 가 아님).
+ */
+export async function sendPoke(receiverId: number, message?: string): Promise<Poke> {
+  const { data } = await api.post<Poke>('/community/pokes', {
+    receiver_id: receiverId,
+    message: message ?? null,
+  });
+  return data;
+}
+
+export async function fetchReceivedPokes(limit = 20): Promise<Poke[]> {
+  const { data } = await api.get<Poke[]>('/community/pokes/received', {
+    params: { limit },
+  });
+  return data;
+}
+
+export async function fetchFriendActivity(friendId: number): Promise<FriendActivity> {
+  const { data } = await api.get<FriendActivity>(
+    `/community/friends/${friendId}/activity`,
+  );
+  return data;
+}
+
+export async function coopCelebrate(friendId: number): Promise<CoopCelebrateResponse> {
+  const { data } = await api.post<CoopCelebrateResponse>(
+    `/community/coop/celebrate/${friendId}`,
+  );
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Sleep
+// ---------------------------------------------------------------------------
+
+export async function fetchSleepStats(days = 7): Promise<SleepStats> {
+  const { data } = await api.get<SleepStats>('/sleep/stats', { params: { days } });
   return data;
 }

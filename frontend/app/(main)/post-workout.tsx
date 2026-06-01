@@ -6,13 +6,8 @@ import { colors } from '@/constants/colors';
 import { fontSize, fontWeight, spacing } from '@/constants/typography';
 import { useLoopAnimation } from '@/hooks/useLoopAnimation';
 import { AICard, AIItem } from '@/components/cards/AICard';
-
-const REPORT = [
-  { label: '총 운동 시간', val: '52', unit: '분' },
-  { label: '칼로리 소모', val: '342', unit: 'kcal' },
-  { label: '달성률', val: '100', unit: '%' },
-  { label: '총 볼륨', val: '3,420', unit: 'kg' },
-];
+import { useAuthStore } from '@/store/authStore';
+import { useWorkoutStore } from '@/store/workoutStore';
 
 const AFTERCARE: AIItem[] = [
   { emoji: '🍬', text: '포도당 보충! 고강도 하체 후 혈당이 떨어졌어요. 포도당 캔디 하나 드세요.' },
@@ -25,6 +20,21 @@ const AFTERCARE: AIItem[] = [
 export default function PostWorkoutScreen() {
   const router = useRouter();
   const scaleAnim = useLoopAnimation(1.08, 750, 1);
+  const lastSession = useWorkoutStore((s) => s.lastSession);
+  const user = useAuthStore((s) => s.user);
+
+  const durationMin = lastSession?.total_duration_sec
+    ? Math.round(lastSession.total_duration_sec / 60)
+    : 0;
+  const aiItems: AIItem[] = lastSession?.ai_feedback
+    ? [{ emoji: '🤖', text: lastSession.ai_feedback }]
+    : AFTERCARE;
+  const report = [
+    { label: '총 운동 시간', val: String(durationMin), unit: '분' },
+    { label: '칼로리 소모', val: lastSession?.calories_burned ? String(lastSession.calories_burned) : '-', unit: 'kcal' },
+    { label: '획득 XP', val: String(lastSession?.xp_earned ?? 0), unit: 'XP' },
+    { label: '총 볼륨', val: lastSession?.total_volume_kg ? `${lastSession.total_volume_kg.toLocaleString()}` : '-', unit: 'kg' },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -35,11 +45,11 @@ export default function PostWorkoutScreen() {
         {/* 헤더 */}
         <View style={styles.header}>
           <Animated.Text style={[styles.char, { transform: [{ scale: scaleAnim }] }]}>
-            🐣
+            {user?.character_emoji ?? '🐣'}
           </Animated.Text>
           <Text style={styles.charStar}>⭐</Text>
           <Text style={styles.title}>수고했어요! 🎉</Text>
-          <Text style={styles.subtitle}>리핏메타몽도 함께 땀 흘렸어요</Text>
+          <Text style={styles.subtitle}>{user?.nickname ?? ''}님, 정말 대단해요! 🎉</Text>
         </View>
 
         <View style={styles.body}>
@@ -47,7 +57,7 @@ export default function PostWorkoutScreen() {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>📋 오늘의 리포트</Text>
             <View style={styles.reportGrid}>
-              {REPORT.map((item, i) => (
+              {report.map((item, i) => (
                 <View key={i} style={styles.reportItem}>
                   <Text style={styles.reportLabel}>{item.label}</Text>
                   <Text style={styles.reportVal}>
@@ -60,17 +70,7 @@ export default function PostWorkoutScreen() {
           </View>
 
           {/* AI 운동 후 케어 카드 */}
-          <AICard title="AI 운동 후 케어" items={AFTERCARE} />
-
-          {/* 뱃지 획득 */}
-          <View style={styles.badgeEarned}>
-            <Text style={styles.badgeIcon}>🔥</Text>
-            <View>
-              <Text style={styles.badgeNew}>NEW BADGE</Text>
-              <Text style={styles.badgeName}>불꽃 루틴러</Text>
-              <Text style={styles.badgeDesc}>연속 3회 운동을 완료했어요</Text>
-            </View>
-          </View>
+          <AICard title="AI 운동 후 케어" items={aiItems} />
 
           {/* 홈으로 버튼 */}
           <TouchableOpacity
@@ -119,27 +119,6 @@ const styles = StyleSheet.create({
   reportLabel: { fontSize: 10, color: colors.text3, fontWeight: fontWeight.regular, marginBottom: 1 },
   reportVal: { fontSize: 16, fontWeight: fontWeight.heavy, color: colors.text },
   reportUnit: { fontSize: 10, color: colors.text2 },
-  badgeEarned: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    backgroundColor: '#fff8e8',
-    borderRadius: 14,
-    paddingHorizontal: 13,
-    paddingVertical: 11,
-    borderWidth: 1.5,
-    borderColor: '#f5d060',
-  },
-  badgeIcon: { fontSize: 28 },
-  badgeNew: {
-    fontSize: 10,
-    color: colors.amber,
-    fontWeight: fontWeight.heavy,
-    letterSpacing: 0.7,
-    marginBottom: 1,
-  },
-  badgeName: { fontSize: 13, fontWeight: fontWeight.heavy, color: colors.text },
-  badgeDesc: { fontSize: fontSize.xs, color: colors.text2 },
   homeBtn: {
     backgroundColor: colors.accent,
     borderRadius: 15,

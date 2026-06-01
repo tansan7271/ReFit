@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -6,13 +7,17 @@ import { colors } from '@/constants/colors';
 import { fontSize, fontWeight, spacing } from '@/constants/typography';
 import { useLoopAnimation } from '@/hooks/useLoopAnimation';
 import { AICard, AIItem } from '@/components/cards/AICard';
+import { fetchPreWorkoutMessage, fetchSleepStats } from '@/services/api';
+import { useAuthStore } from '@/store/authStore';
+import type { SleepStats } from '@/types';
 
-const CONDITION = [
-  { icon: '😴', label: '어젯밤 수면', val: '5h 12m', badge: '부족', ok: false },
-  { icon: '🚶', label: '오늘 걸음수', val: '4,280보', badge: '보통', ok: true },
-  { icon: '❤️', label: '안정 심박', val: '62 bpm', badge: '정상', ok: true },
-  { icon: '☀️', label: '날씨', val: '맑음 22°C', badge: '쾌적', ok: true },
-];
+function formatSleep(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m}분`;
+  if (m === 0) return `${h}시간`;
+  return `${h}h ${m}m`;
+}
 
 const AI_TIPS: AIItem[] = [
   { emoji: '😴', text: '어제 5시간밖에 못 잤어요. 오늘은 기록보단 폼 유지에 집중! 무게 10% 낮춰도 좋아요.' },
@@ -24,6 +29,42 @@ const AI_TIPS: AIItem[] = [
 export default function PreWorkoutScreen() {
   const router = useRouter();
   const bounceAnim = useLoopAnimation(-9, 750);
+  const user = useAuthStore((s) => s.user);
+  const [sleepStats, setSleepStats] = useState<SleepStats | null>(null);
+  const [aiItems, setAiItems] = useState<AIItem[]>([{ emoji: '🤖', text: 'AI 가이드 불러오는 중...' }]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchSleepStats(1)
+      .then((s) => { if (!cancelled) setSleepStats(s); })
+      .catch((e) => { console.warn('[pre-workout] sleep stats fetch failed', e); });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPreWorkoutMessage()
+      .then((res) => {
+        if (!cancelled) setAiItems([{ emoji: '🤖', text: res.message }]);
+      })
+      .catch((e) => {
+        console.warn('[pre-workout] AI guide fetch failed', e);
+        if (!cancelled) setAiItems(AI_TIPS);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const sleepDurationMin = sleepStats?.avg_duration_minutes ?? 0;
+  const sleepText = sleepStats ? formatSleep(sleepDurationMin) : '-';
+  const sleepOk = sleepDurationMin >= 360; // 6시간 이상이면 ok
+  const sleepBadge = !sleepStats ? '-' : sleepOk ? '양호' : '부족';
+
+  const CONDITION = [
+    { icon: '😴', label: '어젯밤 수면', val: sleepText, badge: sleepBadge, ok: sleepOk },
+    { icon: '🚶', label: '오늘 걸음수', val: '-', badge: '미연동', ok: true },
+    { icon: '❤️', label: '안정 심박', val: '-', badge: '미연동', ok: true },
+    { icon: '☀️', label: '날씨', val: '-', badge: '-', ok: true },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -34,7 +75,7 @@ export default function PreWorkoutScreen() {
         {/* 상단 헤더 */}
         <View style={styles.header}>
           <Animated.Text style={[styles.char, { transform: [{ translateY: bounceAnim }] }]}>
-            🐣
+            {user?.character_emoji ?? '🐣'}
           </Animated.Text>
           <Text style={styles.title}>운동 1시간 전이에요!</Text>
           <Text style={styles.subtitle}>리핏메타몽이 오늘 컨디션 분석했어요</Text>
@@ -75,7 +116,7 @@ export default function PreWorkoutScreen() {
           </View>
 
           {/* AI 케어 카드 */}
-          <AICard title="AI 운동 전 케어" items={AI_TIPS} />
+          <AICard title="AI 운동 전 케어" items={aiItems} />
 
           {/* 운동 시작 버튼 */}
           <TouchableOpacity
