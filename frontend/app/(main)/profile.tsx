@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +16,7 @@ import { MenuSection } from '@/components/ui/MenuSection';
 import { InBodyModal } from '@/components/modals/InBodyModal';
 import { ProfileEditModal } from '@/components/modals/ProfileEditModal';
 import { NotificationSettingsModal } from '@/components/modals/NotificationSettingsModal';
+import { HealthConnectModal } from '@/components/modals/HealthConnectModal';
 import { fetchInbodyHistory } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
 import type { InBodyRecord, User } from '@/types';
@@ -35,6 +37,7 @@ export default function ProfileScreen() {
   const [latestInbody, setLatestInbody] = useState<InBodyRecord | null>(null);
   const [profileEditVisible, setProfileEditVisible] = useState(false);
   const [notifVisible, setNotifVisible] = useState(false);
+  const [healthVisible, setHealthVisible] = useState(false);
 
   useEffect(() => {
     fetchInbodyHistory(1)
@@ -180,7 +183,13 @@ export default function ProfileScreen() {
                 meta: '보통',
                 onPress: () => setNotifVisible(true),
               },
-              { icon: '📱', bg: '#fff0f0', name: '헬스 앱 연동', meta: 'Apple Health' },
+              {
+                icon: '📱',
+                bg: '#fff0f0',
+                name: '헬스 앱 연동',
+                meta: Platform.OS === 'ios' ? 'Apple Health' : 'Health Connect',
+                onPress: () => setHealthVisible(true),
+              },
               { icon: '🔒', bg: colors.softAmber, name: '개인정보 · 데이터' },
             ]}
           />
@@ -221,6 +230,11 @@ export default function ProfileScreen() {
       <NotificationSettingsModal
         visible={notifVisible}
         onClose={() => setNotifVisible(false)}
+      />
+
+      <HealthConnectModal
+        visible={healthVisible}
+        onClose={() => setHealthVisible(false)}
       />
     </SafeAreaView>
   );

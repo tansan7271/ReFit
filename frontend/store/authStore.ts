@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 
 import { fetchMe } from '@/services/api';
+import { registerForPushNotifications } from '@/services/push';
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, storage } from '@/services/storage';
 import { useBadgeStore } from '@/store/badgeStore';
 import { useCommunityStore } from '@/store/communityStore';
@@ -41,6 +42,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
       const user = await fetchMe();
       set({ status: 'authenticated', user });
+
+      registerForPushNotifications().catch((e) =>
+        console.warn('[push] token registration failed', e),
+      );
     } catch {
       await storage.deleteItem(ACCESS_TOKEN_KEY);
       await storage.deleteItem(REFRESH_TOKEN_KEY);
@@ -52,6 +57,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     await storage.setItem(ACCESS_TOKEN_KEY, accessToken);
     await storage.setItem(REFRESH_TOKEN_KEY, refreshToken);
     set({ status: 'authenticated', user });
+
+    registerForPushNotifications().catch((e) =>
+      console.warn('[push] token registration failed', e),
+    );
   },
 
   setUser: (user) => set({ user }),

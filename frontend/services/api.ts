@@ -165,6 +165,17 @@ export async function updateProfile(payload: ProfileUpdatePayload): Promise<User
 }
 
 // ---------------------------------------------------------------------------
+// Push Token
+// ---------------------------------------------------------------------------
+
+export async function registerPushToken(
+  token: string,
+  platform: 'ios' | 'android',
+): Promise<void> {
+  await api.post('/notifications/token', { token, platform });
+}
+
+// ---------------------------------------------------------------------------
 // Notification Settings
 // ---------------------------------------------------------------------------
 
