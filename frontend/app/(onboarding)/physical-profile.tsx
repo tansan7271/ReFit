@@ -37,7 +37,7 @@ export default function PhysicalProfileScreen() {
       title="신체 정보를 알려주세요"
       subtitle="운동 강도와 칼로리 추천에 사용돼요"
       nextEnabled={nextEnabled}
-      onNext={() => router.push('/(onboarding)/health-connect')}
+      onNext={() => router.push('/(onboarding)/personal-info')}
       onBack={() => router.back()}
     >
       <View style={styles.inputRow}>

@@ -20,6 +20,7 @@ export const ONBOARDING_STEPS = [
   'workout-routine',
   'sleep-goal',
   'physical-profile',
+  'personal-info',
   'health-connect',
   'character-intro',
 ] as const;
@@ -36,13 +37,13 @@ interface OnboardingState {
   sleepGoal: SleepGoal;
   physicalProfile: PhysicalProfile;
   healthLinked: boolean;
-  /** 나이 — 인적사항 화면에서 수집 (화면 미구현) */
+  /** 나이 — 인적사항 화면에서 수집 */
   age: number | null;
-  /** 성별 — 인적사항 화면에서 수집 (화면 미구현) */
+  /** 성별 — 인적사항 화면에서 수집 */
   gender: Gender | null;
-  /** 캐릭터 이모지 — 캐릭터 소개 화면에서 수집 (화면 미구현) */
+  /** 캐릭터 이모지 — 캐릭터 소개 화면에서 수집 */
   characterEmoji: string | null;
-  /** 운동 목표 — 캐릭터 소개 화면에서 수집 (화면 미구현) */
+  /** 운동 목표 — 캐릭터 소개 화면에서 수집 */
   goal: string | null;
 
   /** 운동 부위 토글 */
@@ -51,9 +52,9 @@ interface OnboardingState {
   setPhysicalProfile: (profile: Partial<PhysicalProfile>) => void;
   setSkillLevel: (level: SkillLevel) => void;
   setHealthLinked: (linked: boolean) => void;
-  /** 인적사항(나이/성별) 설정 — 인적사항 화면 구현 시 사용 */
+  /** 인적사항(나이/성별) 설정 */
   setPersonalInfo: (age: number, gender: Gender) => void;
-  /** 캐릭터 정보(이모지/목표) 설정 — 캐릭터 소개 화면 구현 시 사용 */
+  /** 캐릭터 정보(이모지/목표) 설정 */
   setCharacterInfo: (emoji: string, goal: string) => void;
 
   /** 제출용 페이로드 생성 */

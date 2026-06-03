@@ -1,6 +1,44 @@
-# Claude Code 로컬 설정 (개인 환경마다 다름)
+# Claude Code 로컬 설정
 .claude/settings.local.json
 .claude/agent-memory/
 
 # macOS
 .DS_Store
+.DS_Store?
+._*
+
+# 환경변수 & 시크릿
+.env
+.env.local
+.env.*.local
+firebase-credentials.json
+*.key
+*.pem
+*.p12
+*.keystore
+
+# Python
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.pytest_cache/
+backend/dist/
+backend/build/
+backend/*.egg-info/
+
+# Node.js / Expo
+frontend/node_modules/
+frontend/.expo/
+frontend/dist/
+frontend/build/
+
+# Android build
+frontend/android/
+frontend/ios/
+
+# 에디터
+.vscode/
+.idea/
+*.swp
+*.swo
