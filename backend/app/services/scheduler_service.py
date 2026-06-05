@@ -132,7 +132,10 @@ async def _send_inactivity_reminders() -> None:
     async with _get_session_factory()() as db:
         active_users_subq = (
             select(WorkoutSession.user_id)
-            .where(WorkoutSession.started_at >= three_days_ago)
+            .where(
+                WorkoutSession.started_at >= three_days_ago,
+                WorkoutSession.status == SessionStatus.COMPLETED,
+            )
             .distinct()
         )
         result = await db.execute(

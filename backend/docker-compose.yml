@@ -36,9 +36,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: refit_tunnel
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --url http://api:8000
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate --url http://api:8000
     depends_on:
       - api
 
