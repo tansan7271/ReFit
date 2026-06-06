@@ -28,7 +28,7 @@ async def send_friend_request(
     current_user: User = Depends(get_current_user),
 ):
     if body.addressee_id == current_user.id:
-        raise HTTPException(status_code=400, detail="Cannot friend yourself")
+        raise HTTPException(status_code=400, detail="자기 자신에게 친구 요청을 보낼 수 없어요")
 
     existing = await db.execute(
         select(Friendship).where(
@@ -39,7 +39,7 @@ async def send_friend_request(
         )
     )
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Friendship already exists")
+        raise HTTPException(status_code=409, detail="이미 친구 관계예요")
 
     friendship = Friendship(requester_id=current_user.id, addressee_id=body.addressee_id)
     db.add(friendship)
@@ -62,7 +62,7 @@ async def accept_friend_request(
     )
     friendship = result.scalar_one_or_none()
     if not friendship:
-        raise HTTPException(status_code=404, detail="Friend request not found")
+        raise HTTPException(status_code=404, detail="친구 요청을 찾을 수 없어요")
 
     friendship.status = FriendshipStatus.ACCEPTED
     db.add(friendship)
@@ -132,7 +132,7 @@ async def remove_friend(
     )
     friendship = result.scalar_one_or_none()
     if not friendship:
-        raise HTTPException(status_code=404, detail="Friendship not found")
+        raise HTTPException(status_code=404, detail="친구 관계를 찾을 수 없어요")
     await db.delete(friendship)
 
 
@@ -145,7 +145,7 @@ async def send_poke(
     current_user: User = Depends(get_current_user),
 ):
     if body.receiver_id == current_user.id:
-        raise HTTPException(status_code=400, detail="Cannot poke yourself")
+        raise HTTPException(status_code=400, detail="자기 자신을 콕 찌를 수 없어요")
 
     poke = Poke(sender_id=current_user.id, receiver_id=body.receiver_id, message=body.message)
     db.add(poke)
@@ -187,14 +187,14 @@ async def get_friend_activity(
         )
     )
     if not friendship.scalar_one_or_none():
-        raise HTTPException(status_code=403, detail="Not a friend")
+        raise HTTPException(status_code=403, detail="친구가 아니에요")
 
     friend_result = await db.execute(
         select(User).where(User.id == friend_id, User.is_active == True)
     )
     friend = friend_result.scalar_one_or_none()
     if not friend:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없어요")
 
     now = datetime.now(timezone.utc)
     week_ago = now - timedelta(days=7)
@@ -245,7 +245,7 @@ async def coop_celebrate(
 ):
     """오늘 나와 친구가 모두 운동을 완료했으면 서로에게 Co-op 축하 FCM 발송."""
     if friend_id == current_user.id:
-        raise HTTPException(status_code=400, detail="Cannot co-op with yourself")
+        raise HTTPException(status_code=400, detail="자기 자신과 협력 운동을 할 수 없어요")
 
     friendship = await db.execute(
         select(Friendship).where(
@@ -257,7 +257,7 @@ async def coop_celebrate(
         )
     )
     if not friendship.scalar_one_or_none():
-        raise HTTPException(status_code=403, detail="Not a friend")
+        raise HTTPException(status_code=403, detail="친구가 아니에요")
 
     now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)

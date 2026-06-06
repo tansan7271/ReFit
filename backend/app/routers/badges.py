@@ -64,7 +64,7 @@ async def equip_badge(
     )
     user_badge = result.scalar_one_or_none()
     if not user_badge:
-        raise HTTPException(status_code=404, detail="Badge not earned yet")
+        raise HTTPException(status_code=404, detail="아직 획득하지 않은 뱃지예요")
 
     # 기존 장착 해제
     all_badges = await db.execute(

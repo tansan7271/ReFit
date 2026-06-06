@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, model_validator
 
 from app.models.user import FitnessLevel, Gender
+
+
+# 프론트 요일 키('mon'/'tue'/...) → WorkoutPlan.day_of_week (0=월 ~ 6=일) 매핑
+WEEKDAY_TO_DOW: dict[str, int] = {
+    "mon": 0, "tue": 1, "wed": 2, "thu": 3,
+    "fri": 4, "sat": 5, "sun": 6,
+}
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -24,7 +32,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
-    user: UserResponse | None = None
+    user: UserResponse
 
 
 class RefreshRequest(BaseModel):
@@ -34,6 +42,12 @@ class RefreshRequest(BaseModel):
 # ── User Profile ───────────────────────────────────────────────────────────────
 
 _TIME_PATTERN = r"^([01]\d|2[0-3]):[0-5]\d$"  # "HH:MM" 24시간 형식
+
+
+class DayRoutine(BaseModel):
+    """온보딩에서 전달되는 요일별 운동 루틴 1건"""
+    day: Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+    bodyParts: list[str] = []  # BodyPart 키: 'chest', 'back' 등
 
 
 class OnboardingRequest(BaseModel):
@@ -48,6 +62,10 @@ class OnboardingRequest(BaseModel):
     # 수면 목표 (선택) — 온보딩 수면 설정 단계에서 함께 전달
     sleep_goal_bedtime: str | None = Field(None, pattern=_TIME_PATTERN)
     sleep_goal_wakeup: str | None = Field(None, pattern=_TIME_PATTERN)
+
+    # 요일별 운동 루틴 (선택) — WorkoutPlan 으로 변환되어 저장
+    routines: list[DayRoutine] = []
+    healthLinked: bool = False
 
 
 class UserProfileUpdate(BaseModel):

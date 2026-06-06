@@ -34,7 +34,7 @@ async def register_push_token(
             platform=body.platform,
         )
     db.add(token)
-    return {"message": "Token registered"}
+    return {"message": "토큰이 등록되었어요"}
 
 
 @router.delete("/token/{token}", status_code=204)
@@ -48,7 +48,7 @@ async def deregister_push_token(
     )
     push_token = result.scalar_one_or_none()
     if not push_token:
-        raise HTTPException(status_code=404, detail="Token not found")
+        raise HTTPException(status_code=404, detail="푸시 토큰을 찾을 수 없어요")
     push_token.is_active = False
     db.add(push_token)
 
@@ -103,7 +103,7 @@ async def send_workout_reminder(
     )
     tokens = result.scalars().all()
     if not tokens:
-        raise HTTPException(status_code=404, detail="No active push tokens")
+        raise HTTPException(status_code=404, detail="등록된 푸시 토큰이 없어요")
 
     for token in tokens:
         await fcm_service.send(

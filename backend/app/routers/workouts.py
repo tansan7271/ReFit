@@ -98,7 +98,7 @@ async def update_plan(
     )
     plan = result.scalar_one_or_none()
     if not plan:
-        raise HTTPException(status_code=404, detail="Plan not found")
+        raise HTTPException(status_code=404, detail="운동 플랜을 찾을 수 없어요")
 
     if body.name is not None:
         plan.name = body.name
@@ -130,7 +130,7 @@ async def delete_plan(
     )
     plan = result.scalar_one_or_none()
     if not plan:
-        raise HTTPException(status_code=404, detail="Plan not found")
+        raise HTTPException(status_code=404, detail="운동 플랜을 찾을 수 없어요")
     await db.delete(plan)
 
 
@@ -172,7 +172,7 @@ async def complete_session(
     )
     session = result.scalar_one_or_none()
     if not session:
-        raise HTTPException(status_code=404, detail="Active session not found")
+        raise HTTPException(status_code=404, detail="진행 중인 운동 세션이 없어요")
 
     now = datetime.now(timezone.utc)
     session.ended_at = now
@@ -269,7 +269,7 @@ async def get_session_detail(
     )
     session = result.scalar_one_or_none()
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="운동 세션을 찾을 수 없어요")
     return session
 
 

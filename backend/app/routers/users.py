@@ -6,9 +6,10 @@ from app.core.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User, UserInBody
 from app.models.notification import PushToken
+from app.models.workout import WorkoutPlan
 from app.schemas.user import (
     UserResponse, UserProfileUpdate, InBodyCreate, InBodyResponse, OnboardingRequest,
-    SleepGoalUpdate, SleepGoalResponse,
+    SleepGoalUpdate, SleepGoalResponse, WEEKDAY_TO_DOW,
 )
 from app.services.fcm_service import fcm_service
 
@@ -39,7 +40,7 @@ async def complete_onboarding(
     current_user: User = Depends(get_current_user),
 ):
     if current_user.is_onboarding_complete:
-        raise HTTPException(status_code=409, detail="Onboarding already completed")
+        raise HTTPException(status_code=409, detail="이미 온보딩을 완료했어요")
 
     current_user.age = body.age
     current_user.gender = body.gender
@@ -61,6 +62,25 @@ async def complete_onboarding(
 
     db.add(current_user)
     await db.flush()
+
+    # 운동 루틴 생성 (body parts → WorkoutPlan.name 에 콤마 구분으로 저장)
+    # 중복 요일 제거 (마지막 값 우선) — workout_plans 에 (user_id, day_of_week)
+    # 유니크 제약이 없어, 프론트가 같은 요일을 중복 전송하면 행이 두 개 생성됨
+    seen_days: set[int] = set()
+    for routine in reversed(body.routines):
+        parts = [p for p in routine.bodyParts if p]  # 빈 값 제거
+        if not parts:
+            continue  # 빈 날은 플랜 생성 안 함 (휴식일)
+        dow = WEEKDAY_TO_DOW[routine.day]
+        if dow in seen_days:
+            continue  # 이미 처리한 요일 — 마지막(역순 기준 첫) 항목만 유지
+        seen_days.add(dow)
+        db.add(WorkoutPlan(
+            user_id=current_user.id,
+            day_of_week=dow,
+            name=",".join(parts),
+            is_rest_day=False,
+        ))
 
     # FCM 웰컴 알림 (토큰이 없거나 실패해도 무시)
     try:
@@ -149,7 +169,8 @@ async def add_inbody(
         db.add(current_user)
 
     db.add(record)
-    await db.flush()
+    await db.commit()
+    await db.refresh(record)
     return record
 
 
@@ -177,5 +198,5 @@ async def get_user_public(
     result = await db.execute(select(User).where(User.id == user_id, User.is_active == True))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없어요")
     return user

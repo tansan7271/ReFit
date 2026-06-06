@@ -195,5 +195,5 @@ async def delete_sleep_record(
     )
     record = result.scalar_one_or_none()
     if not record:
-        raise HTTPException(status_code=404, detail="Sleep record not found")
+        raise HTTPException(status_code=404, detail="수면 기록을 찾을 수 없어요")
     await db.delete(record)

@@ -21,10 +21,6 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60             # 1 hour (refresh token으로 재발급)
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
-    # FCM (Firebase Cloud Messaging)
-    FIREBASE_CREDENTIALS_PATH: str = "firebase-credentials.json"
-    FIREBASE_PROJECT_ID: str = ""
-
     # Google Gemini
     GEMINI_API_KEY: str = ""
 
