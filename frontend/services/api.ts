@@ -9,6 +9,7 @@ import { Platform } from 'react-native';
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, storage } from '@/services/storage';
 import type {
   Badge,
+  BodyPart,
   CoopCelebrateResponse,
   Friend,
   FriendActivity,
@@ -80,12 +81,55 @@ api.interceptors.response.use(
   },
 );
 
-/** 일관된 에러 메시지 추출 */
+/** FastAPI/Pydantic 검증 에러 항목 (422 응답 detail 배열의 요소) */
+interface ValidationErrorItem {
+  type?: string;
+  loc?: (string | number)[];
+  msg?: string;
+  input?: unknown;
+  ctx?: Record<string, unknown>;
+}
+
+/** API 에러 응답 바디 형태 */
+interface ApiErrorData {
+  detail?: string | ValidationErrorItem[];
+  message?: string;
+}
+
+/**
+ * 어떤 형태의 detail/message 든 안전하게 사람이 읽을 수 있는 문자열로 변환한다.
+ * - detail 이 배열(FastAPI 422)이면 → 첫 항목의 msg
+ * - detail 이 문자열이면 → 그대로
+ * - message 가 있으면 → 그 값
+ * - 그 외 → fallback
+ */
+function extractErrorMessage(data: ApiErrorData | undefined): string | null {
+  if (!data) return null;
+
+  const { detail } = data;
+  if (Array.isArray(detail)) {
+    const first = detail[0];
+    if (first && typeof first.msg === 'string') {
+      return first.msg;
+    }
+    return '입력값을 다시 확인해 주세요.';
+  }
+  if (typeof detail === 'string' && detail.length > 0) {
+    return detail;
+  }
+  if (typeof data.message === 'string' && data.message.length > 0) {
+    return data.message;
+  }
+  return null;
+}
+
+/** 일관된 에러 메시지 추출 — 항상 <Text> 에 안전한 문자열을 반환한다. */
 export function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<{ detail?: string }>;
-    if (axiosError.response?.data?.detail) {
-      return axiosError.response.data.detail;
+    const axiosError = error as AxiosError<ApiErrorData>;
+    const extracted = extractErrorMessage(axiosError.response?.data);
+    if (extracted) {
+      return String(extracted);
     }
     if (axiosError.code === 'ECONNABORTED') {
       return '요청 시간이 초과됐어요. 네트워크를 확인해 주세요.';
@@ -95,7 +139,10 @@ export function getApiErrorMessage(error: unknown): string {
     }
     return `오류가 발생했어요 (${axiosError.response.status})`;
   }
-  return '알 수 없는 오류가 발생했어요.';
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return '오류가 발생했습니다.';
 }
 
 // ---------------------------------------------------------------------------
@@ -164,6 +211,17 @@ export async function updateProfile(payload: ProfileUpdatePayload): Promise<User
   return data;
 }
 
+export async function updateSleepGoal(
+  bedtime: string,
+  wakeup: string,
+): Promise<{ sleep_goal_bedtime: string | null; sleep_goal_wakeup: string | null; sleep_goal_minutes: number | null }> {
+  const { data } = await api.put('/users/me/sleep-goal', {
+    sleep_goal_bedtime: bedtime,
+    sleep_goal_wakeup: wakeup,
+  });
+  return data;
+}
+
 // ---------------------------------------------------------------------------
 // Push Token
 // ---------------------------------------------------------------------------
@@ -198,6 +256,34 @@ export async function updateNotificationSettings(
 export async function fetchWorkoutPlans(): Promise<WorkoutPlan[]> {
   const { data } = await api.get<WorkoutPlan[]>('/workouts/plans');
   return data;
+}
+
+export async function createWorkoutPlan(
+  dayOfWeek: number,
+  bodyParts: BodyPart[],
+): Promise<WorkoutPlan> {
+  const { data } = await api.post<WorkoutPlan>('/workouts/plans', {
+    day_of_week: dayOfWeek,
+    name: bodyParts.join(','),
+    is_rest_day: false,
+    exercises: [],
+  });
+  return data;
+}
+
+export async function updateWorkoutPlan(
+  planId: number,
+  bodyParts: BodyPart[],
+): Promise<WorkoutPlan> {
+  const { data } = await api.patch<WorkoutPlan>(`/workouts/plans/${planId}`, {
+    name: bodyParts.join(','),
+    is_rest_day: false,
+  });
+  return data;
+}
+
+export async function deleteWorkoutPlan(planId: number): Promise<void> {
+  await api.delete(`/workouts/plans/${planId}`);
 }
 
 // ---------------------------------------------------------------------------

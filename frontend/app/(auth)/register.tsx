@@ -47,7 +47,7 @@ export default function RegisterScreen() {
     try {
       const session = await register(email.trim(), password, nickname.trim());
       await setSession(session.accessToken, session.refreshToken, session.user);
-      router.replace('/(onboarding)');
+      router.replace('/(onboarding)/workout-routine');
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {

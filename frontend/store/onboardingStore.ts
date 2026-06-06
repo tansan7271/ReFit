@@ -132,7 +132,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       // 신체 정보 — snake_case 로 변환
       height_cm: physicalProfile.heightCm,
       weight_kg: physicalProfile.weightKg,
-      fitness_level: physicalProfile.skillLevel,
+      fitness_level: physicalProfile.skillLevel === 'novice' ? 'beginner' : physicalProfile.skillLevel ?? undefined,
       // 캐릭터 정보 — 화면 미구현, 값이 없으면 undefined 로 전송
       goal: goal ?? undefined,
       character_emoji: characterEmoji ?? undefined,

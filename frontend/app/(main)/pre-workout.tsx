@@ -31,6 +31,8 @@ export default function PreWorkoutScreen() {
   const bounceAnim = useLoopAnimation(-9, 750);
   const user = useAuthStore((s) => s.user);
   const [sleepStats, setSleepStats] = useState<SleepStats | null>(null);
+  const [weatherDesc, setWeatherDesc] = useState<string | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
   const [aiItems, setAiItems] = useState<AIItem[]>([{ emoji: '🤖', text: 'AI 가이드 불러오는 중...' }]);
 
   useEffect(() => {
@@ -45,11 +47,17 @@ export default function PreWorkoutScreen() {
     let cancelled = false;
     fetchPreWorkoutMessage()
       .then((res) => {
-        if (!cancelled) setAiItems([{ emoji: '🤖', text: res.message }]);
+        if (!cancelled) {
+          setAiItems([{ emoji: '🤖', text: res.message }]);
+          setWeatherDesc(res.weather_desc);
+        }
       })
       .catch((e) => {
         console.warn('[pre-workout] AI guide fetch failed', e);
         if (!cancelled) setAiItems(AI_TIPS);
+      })
+      .finally(() => {
+        if (!cancelled) setWeatherLoading(false);
       });
     return () => { cancelled = true; };
   }, []);
@@ -63,7 +71,14 @@ export default function PreWorkoutScreen() {
     { icon: '😴', label: '어젯밤 수면', val: sleepText, badge: sleepBadge, ok: sleepOk },
     { icon: '🚶', label: '오늘 걸음수', val: '-', badge: '미연동', ok: true },
     { icon: '❤️', label: '안정 심박', val: '-', badge: '미연동', ok: true },
-    { icon: '☀️', label: '날씨', val: '-', badge: '-', ok: true },
+    {
+      icon: '☀️',
+      label: '날씨',
+      val: weatherLoading ? '-' : (weatherDesc ?? '날씨 정보 없음'),
+      badge: '-',
+      ok: true,
+      muted: !weatherDesc,
+    },
   ];
 
   return (
@@ -95,7 +110,9 @@ export default function PreWorkoutScreen() {
               >
                 <Text style={styles.condIcon}>{item.icon}</Text>
                 <Text style={styles.condLabel}>{item.label}</Text>
-                <Text style={styles.condVal}>{item.val}</Text>
+                <Text style={[styles.condVal, 'muted' in item && item.muted && styles.condValMuted]}>
+                  {item.val}
+                </Text>
                 <View
                   style={[
                     styles.condBadge,
@@ -167,6 +184,7 @@ const styles = StyleSheet.create({
   condIcon: { fontSize: 16, width: 26, textAlign: 'center' },
   condLabel: { flex: 1, fontSize: fontSize.sm, color: colors.text2 },
   condVal: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.text },
+  condValMuted: { fontSize: fontSize.xs, fontWeight: fontWeight.regular, color: colors.text3 },
   condBadge: { borderRadius: 7, paddingHorizontal: 7, paddingVertical: 2 },
   condBadgeText: { fontSize: 10, fontWeight: fontWeight.bold },
   startBtn: {

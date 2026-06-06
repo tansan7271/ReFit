@@ -74,7 +74,7 @@ export default function WorkoutRoutineScreen() {
               <Text
                 style={[
                   styles.dayChipText,
-                  (filled || active) && styles.dayChipTextOn,
+                  active && styles.dayChipTextOn,
                 ]}
               >
                 {WEEKDAY_LABEL[day]}

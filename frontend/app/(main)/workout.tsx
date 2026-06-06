@@ -56,7 +56,12 @@ export default function WorkoutScreen() {
             {todayPlan
               ? todayPlan.is_rest_day
                 ? '오늘은 휴식일이에요 😴'
-                : (todayPlan.name ?? '운동 플랜')
+                : (todayPlan.name
+                    ? todayPlan.name
+                        .split(',')
+                        .map((p) => MUSCLE_GROUP_LABEL[p] ?? p)
+                        .join(' · ')
+                    : '운동 플랜')
               : '플랜을 아직 설정하지 않았어요'}
           </Text>
           <Text style={styles.headerSub}>

@@ -38,7 +38,7 @@ export interface SleepGoal {
 export interface PhysicalProfile {
   heightCm: number | null;
   weightKg: number | null;
-  skillLevel: FitnessLevel | null;
+  skillLevel: SkillLevel | null;
 }
 
 /**
@@ -50,7 +50,7 @@ export interface OnboardingPayload {
   gender?: Gender;
   height_cm: number | null;
   weight_kg: number | null;
-  fitness_level: SkillLevel | FitnessLevel | null;
+  fitness_level: FitnessLevel | undefined;
   goal?: string;
   character_emoji?: string;
   /** 취침 목표 시각 "HH:MM" */

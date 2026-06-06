@@ -39,7 +39,7 @@ export default function LoginScreen() {
       if (session.user.is_onboarding_complete) {
         router.replace('/(main)');
       } else {
-        router.replace('/(onboarding)');
+        router.replace('/(onboarding)/workout-routine');
       }
     } catch (e) {
       setError(getApiErrorMessage(e));

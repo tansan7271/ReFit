@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -18,6 +19,14 @@ import type { NotificationSettings } from '@/types';
 interface NotificationSettingsModalProps {
   visible: boolean;
   onClose: () => void;
+  onSettingsChanged?: (settings: NotificationSettings) => void;
+}
+
+/** "HH:mm" 형식 + 유효 시각(시 0-23, 분 0-59) 검증 */
+function isValidTime(value: string): boolean {
+  if (!/^\d{2}:\d{2}$/.test(value)) return false;
+  const [h, m] = value.split(':').map(Number);
+  return h >= 0 && h <= 23 && m >= 0 && m <= 59;
 }
 
 type ToggleKey =
@@ -35,14 +44,22 @@ const TOGGLE_ITEMS: { key: ToggleKey; label: string }[] = [
   { key: 'achievement', label: '뱃지 달성' },
 ];
 
-export function NotificationSettingsModal({ visible, onClose }: NotificationSettingsModalProps) {
+export function NotificationSettingsModal({
+  visible,
+  onClose,
+  onSettingsChanged,
+}: NotificationSettingsModalProps) {
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [loading, setLoading] = useState(false);
+  const [editingTime, setEditingTime] = useState<'workout' | 'sleep' | null>(null);
+  const [editingTimeValue, setEditingTimeValue] = useState('');
+  const [savingTime, setSavingTime] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
     let cancelled = false;
     setLoading(true);
+    setEditingTime(null);
     fetchNotificationSettings()
       .then((data) => {
         if (!cancelled) setSettings(data);
@@ -63,10 +80,48 @@ export function NotificationSettingsModal({ visible, onClose }: NotificationSett
     try {
       const updated = await updateNotificationSettings({ [key]: value });
       setSettings(updated);
+      onSettingsChanged?.(updated);
     } catch (e) {
       console.warn('알림 설정을 변경하지 못했어요', e);
       setSettings(prev);
       Alert.alert('알림', '설정을 변경하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    }
+  };
+
+  const handleTimeRowPress = (which: 'workout' | 'sleep') => {
+    if (editingTime === which) {
+      setEditingTime(null);
+      return;
+    }
+    const current =
+      which === 'workout'
+        ? settings?.workout_reminder_time ?? '07:00'
+        : settings?.sleep_reminder_time ?? '23:00';
+    setEditingTimeValue(current);
+    setEditingTime(which);
+  };
+
+  const handleSaveTime = async () => {
+    if (!settings || !editingTime) return;
+    if (!isValidTime(editingTimeValue)) {
+      Alert.alert('알림', '시간을 07:00 형식(00:00~23:59)으로 입력해 주세요.');
+      return;
+    }
+    const payload =
+      editingTime === 'workout'
+        ? { workout_reminder_time: editingTimeValue }
+        : { sleep_reminder_time: editingTimeValue };
+    setSavingTime(true);
+    try {
+      const updated = await updateNotificationSettings(payload);
+      setSettings(updated);
+      onSettingsChanged?.(updated);
+      setEditingTime(null);
+    } catch (e) {
+      console.warn('알림 시간을 변경하지 못했어요', e);
+      Alert.alert('알림', '시간을 변경하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setSavingTime(false);
     }
   };
 
@@ -93,14 +148,73 @@ export function NotificationSettingsModal({ visible, onClose }: NotificationSett
                 </View>
               ))}
 
-              <View style={styles.timeRow}>
+              <TouchableOpacity
+                style={styles.timeRow}
+                activeOpacity={0.7}
+                onPress={() => handleTimeRowPress('workout')}
+              >
                 <Text style={styles.timeLabel}>운동 알림 시간</Text>
                 <Text style={styles.timeValue}>{settings.workout_reminder_time ?? '미설정'}</Text>
-              </View>
-              <View style={styles.timeRow}>
+              </TouchableOpacity>
+              {editingTime === 'workout' && (
+                <View style={styles.timeEditRow}>
+                  <TextInput
+                    style={styles.timeInput}
+                    value={editingTimeValue}
+                    onChangeText={setEditingTimeValue}
+                    keyboardType="numbers-and-punctuation"
+                    placeholder="HH:mm"
+                    placeholderTextColor={colors.text3}
+                    maxLength={5}
+                    autoFocus
+                  />
+                  <TouchableOpacity
+                    style={[styles.timeSaveBtn, savingTime && { opacity: 0.6 }]}
+                    onPress={handleSaveTime}
+                    disabled={savingTime}
+                  >
+                    {savingTime ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.timeSaveText}>저장</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={styles.timeRow}
+                activeOpacity={0.7}
+                onPress={() => handleTimeRowPress('sleep')}
+              >
                 <Text style={styles.timeLabel}>수면 알림 시간</Text>
                 <Text style={styles.timeValue}>{settings.sleep_reminder_time ?? '미설정'}</Text>
-              </View>
+              </TouchableOpacity>
+              {editingTime === 'sleep' && (
+                <View style={styles.timeEditRow}>
+                  <TextInput
+                    style={styles.timeInput}
+                    value={editingTimeValue}
+                    onChangeText={setEditingTimeValue}
+                    keyboardType="numbers-and-punctuation"
+                    placeholder="HH:mm"
+                    placeholderTextColor={colors.text3}
+                    maxLength={5}
+                    autoFocus
+                  />
+                  <TouchableOpacity
+                    style={[styles.timeSaveBtn, savingTime && { opacity: 0.6 }]}
+                    onPress={handleSaveTime}
+                    disabled={savingTime}
+                  >
+                    {savingTime ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.timeSaveText}>저장</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
 
@@ -170,6 +284,35 @@ const styles = StyleSheet.create({
   },
   timeLabel: { fontSize: fontSize.xs, color: colors.text2, fontWeight: fontWeight.regular },
   timeValue: { fontSize: 13, fontWeight: fontWeight.bold, color: colors.text2 },
+  timeEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  timeInput: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: 11,
+    paddingVertical: 9,
+    paddingHorizontal: 11,
+    fontSize: 13,
+    color: colors.text,
+    backgroundColor: colors.card,
+  },
+  timeSaveBtn: {
+    backgroundColor: colors.accent,
+    borderRadius: 11,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 64,
+  },
+  timeSaveText: { fontSize: 13, fontWeight: fontWeight.heavy, color: '#fff' },
   actions: { flexDirection: 'row', gap: 7, marginTop: 14 },
   closeBtn: {
     flex: 1,
