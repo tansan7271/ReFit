@@ -69,6 +69,8 @@ export default function MainTabLayout() {
       />
       {/* 뱃지: 마이페이지 서브 화면 (MVP 이후 독립 탭 예정) */}
       <Tabs.Screen name="badges" options={{ href: null }} />
+      {/* 운동 루틴 편집: 운동 탭 서브 화면 */}
+      <Tabs.Screen name="workout-routine-edit" options={{ href: null, tabBarStyle: { display: 'none' } }} />
       {/* 커뮤니티: MVP 이후 스코프 */}
       <Tabs.Screen name="community" options={{ href: null }} />
     </Tabs>

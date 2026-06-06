@@ -17,9 +17,11 @@ import { InBodyModal } from '@/components/modals/InBodyModal';
 import { ProfileEditModal } from '@/components/modals/ProfileEditModal';
 import { NotificationSettingsModal } from '@/components/modals/NotificationSettingsModal';
 import { HealthConnectModal } from '@/components/modals/HealthConnectModal';
-import { fetchInbodyHistory } from '@/services/api';
+import { FitnessLevelEditModal } from '@/components/modals/FitnessLevelEditModal';
+import { SleepGoalEditModal } from '@/components/modals/SleepGoalEditModal';
+import { fetchInbodyHistory, fetchNotificationSettings } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
-import type { InBodyRecord, User } from '@/types';
+import type { InBodyRecord, NotificationSettings, User } from '@/types';
 
 const FITNESS_LEVEL_LABEL: Record<string, string> = {
   beginner: '초보자',
@@ -27,6 +29,16 @@ const FITNESS_LEVEL_LABEL: Record<string, string> = {
   advanced: '상급자',
   athlete: '운동선수급',
 };
+
+function computeNotifMeta(s: NotificationSettings): string {
+  const keys: Array<keyof NotificationSettings> = [
+    'ai_coaching', 'workout_reminder', 'sleep_reminder', 'friend_poke', 'achievement',
+  ];
+  const count = keys.filter((k) => Boolean(s[k])).length;
+  if (count === 5) return '모두 켜짐';
+  if (count === 0) return '모두 꺼짐';
+  return count + '개 켜짐';
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -38,11 +50,18 @@ export default function ProfileScreen() {
   const [profileEditVisible, setProfileEditVisible] = useState(false);
   const [notifVisible, setNotifVisible] = useState(false);
   const [healthVisible, setHealthVisible] = useState(false);
+  const [fitnessEditVisible, setFitnessEditVisible] = useState(false);
+  const [sleepEditVisible, setSleepEditVisible] = useState(false);
+  const [notifMeta, setNotifMeta] = useState('확인 중...');
 
   useEffect(() => {
     fetchInbodyHistory(1)
       .then((records) => setLatestInbody(records[0] ?? null))
       .catch(() => {});
+
+    fetchNotificationSettings()
+      .then((settings) => setNotifMeta(computeNotifMeta(settings)))
+      .catch(() => setNotifMeta('–'));
   }, []);
 
   const handleSaveInbody = (record: InBodyRecord) => {
@@ -135,13 +154,6 @@ export default function ProfileScreen() {
             >
               <Text style={styles.inbodyUpdateBtnText}>✏️ 오늘 수치 입력하기</Text>
             </TouchableOpacity>
-            <Text style={styles.inbodyHint}>
-              {'강제 알림 없이 '}
-              <Text style={{ color: colors.accent, fontWeight: fontWeight.bold }}>
-                원할 때 자발적으로
-              </Text>
-              {' 기록해요 💜'}
-            </Text>
           </View>
 
           <MenuSection
@@ -152,8 +164,9 @@ export default function ProfileScreen() {
                 bg: colors.softBlue,
                 name: '프로필',
                 meta: `${nickname} · ${user?.age ? `${user.age}세` : '나이 미설정'}`,
+                onPress: () => setProfileEditVisible(true),
               },
-              { icon: '💪', bg: colors.softGreen, name: '운동 숙련도', meta: fitnessLabel },
+              { icon: '💪', bg: colors.softGreen, name: '운동 숙련도', meta: fitnessLabel, onPress: () => setFitnessEditVisible(true) },
               {
                 icon: '🌙',
                 bg: '#e3f2fd',
@@ -162,6 +175,14 @@ export default function ProfileScreen() {
                   user?.sleep_goal_bedtime && user?.sleep_goal_wakeup
                     ? `${user.sleep_goal_bedtime} – ${user.sleep_goal_wakeup}`
                     : '미설정',
+                onPress: () => setSleepEditVisible(true),
+              },
+              {
+                icon: '🏋️',
+                bg: colors.softGreen,
+                name: '운동 루틴',
+                meta: '주간 루틴 설정',
+                onPress: () => router.push('/(main)/workout-routine-edit'),
               },
               {
                 icon: '🏅',
@@ -180,7 +201,7 @@ export default function ProfileScreen() {
                 icon: '🔔',
                 bg: colors.softBlue,
                 name: '알림 설정',
-                meta: '보통',
+                meta: notifMeta,
                 onPress: () => setNotifVisible(true),
               },
               {
@@ -225,11 +246,29 @@ export default function ProfileScreen() {
         onSave={handleSaveProfile}
         currentNickname={user?.nickname ?? ''}
         currentAge={user?.age ?? undefined}
+        currentGender={user?.gender ?? null}
+        currentHeight={user?.height_cm ?? null}
+        currentWeight={user?.weight_kg ?? null}
       />
 
       <NotificationSettingsModal
         visible={notifVisible}
         onClose={() => setNotifVisible(false)}
+        onSettingsChanged={(s) => setNotifMeta(computeNotifMeta(s))}
+      />
+
+      <FitnessLevelEditModal
+        visible={fitnessEditVisible}
+        onClose={() => setFitnessEditVisible(false)}
+        onSave={(updated) => { setUser(updated); setFitnessEditVisible(false); }}
+        currentLevel={user?.fitness_level ?? null}
+      />
+      <SleepGoalEditModal
+        visible={sleepEditVisible}
+        onClose={() => setSleepEditVisible(false)}
+        onSave={(updated) => { setUser(updated); setSleepEditVisible(false); }}
+        currentBedtime={user?.sleep_goal_bedtime ?? null}
+        currentWakeup={user?.sleep_goal_wakeup ?? null}
       />
 
       <HealthConnectModal
@@ -308,5 +347,4 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   inbodyUpdateBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.heavy, color: '#fff' },
-  inbodyHint: { fontSize: 10, color: colors.text3, marginTop: 7, textAlign: 'center', lineHeight: 15 },
 });
