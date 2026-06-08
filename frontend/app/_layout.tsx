@@ -10,7 +10,11 @@ import {
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
+
+// JS 렌더링 완료 전까지 native splash를 붙잡아서 파란 blob 플래시 방지
+SplashScreen.preventAutoHideAsync();
 
 import { colors } from "@/constants/colors";
 import { useAuthStore } from "@/store/authStore";
@@ -56,6 +60,11 @@ export default function RootLayout() {
 
     const [splashMounted, setSplashMounted] = useState(true);
     const opacityAnim = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        // JS splash가 완전히 마운트된 후 native splash 해제
+        SplashScreen.hideAsync().catch(() => {});
+    }, []);
 
     useEffect(() => {
         useAuthStore.getState().bootstrap();

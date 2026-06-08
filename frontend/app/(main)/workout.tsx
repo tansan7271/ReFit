@@ -316,6 +316,9 @@ export default function WorkoutTab() {
     async function handleSave() {
         setSaving(true);
         dismissCompletionSheet();
+        // 쉬트 dismiss 애니메이션(220ms) 완료 후 성공 모달 표시
+        // iOS는 Modal이 닫히기 전에 다른 Modal을 열면 두 번째가 무시됨
+        await new Promise((resolve) => setTimeout(resolve, 280));
         setShowSuccessModal(true);
 
         // 최초 완료 여부: 이미 완료된 세션 수정이 아니면 최초 완료 → 실패 시 롤백 대상
@@ -607,7 +610,7 @@ export default function WorkoutTab() {
 
             {/* ── 완료 처리 중 모달 ── */}
             <Modal visible={showSuccessModal} transparent animationType="fade">
-                <View style={styles.successOverlay}>
+                <BlurView intensity={60} tint="light" style={styles.successOverlay}>
                     <Text style={styles.successEmoji}>🎉</Text>
                     <Text style={styles.successTitle}>수고 많았어요!</Text>
                     <Text style={styles.successSub}>
@@ -617,7 +620,7 @@ export default function WorkoutTab() {
                         color={colors.accentOrange}
                         style={{ marginTop: 24 }}
                     />
-                </View>
+                </BlurView>
             </Modal>
         </SafeAreaView>
     );
@@ -868,7 +871,7 @@ const styles = StyleSheet.create({
     // ── 완료 처리 중 모달
     successOverlay: {
         flex: 1,
-        backgroundColor: "rgba(255,255,255,0.96)",
+        backgroundColor: "rgba(255,255,255,0.55)",
         justifyContent: "center",
         alignItems: "center",
         gap: 10,
