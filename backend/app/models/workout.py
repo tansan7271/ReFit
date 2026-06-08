@@ -11,7 +11,7 @@ from enum import Enum as PyEnum
 
 from sqlalchemy import (
     Boolean, DateTime, Enum, Float, Integer, SmallInteger,
-    String, Text, ForeignKey, func,
+    String, Text, ForeignKey,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -58,7 +58,7 @@ class Exercise(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     emoji: Mapped[str] = mapped_column(String(10), default="💪", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
 
     plan_exercises: Mapped[list["WorkoutPlanExercise"]] = relationship(back_populates="exercise")
     workout_sets: Mapped[list["WorkoutSet"]] = relationship(back_populates="exercise")
@@ -76,9 +76,9 @@ class WorkoutPlan(Base):
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)    # 예: "등·이두 데이"
     is_rest_day: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     planned_time: Mapped[str | None] = mapped_column(String(5), nullable=True)  # "HH:MM" UTC
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
     )
 
     user: Mapped["User"] = relationship(back_populates="workout_plans")  # type: ignore[name-defined]
@@ -133,7 +133,7 @@ class WorkoutSession(Base):
     completed_parts: Mapped[str | None] = mapped_column(String(200), nullable=True)  # 쉼표 구분: "chest,back"
     voice_memo: Mapped[str | None] = mapped_column(Text, nullable=True)
     xp_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="workout_sessions")  # type: ignore[name-defined]
     plan: Mapped["WorkoutPlan | None"] = relationship(back_populates="sessions")

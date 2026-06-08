@@ -1,18 +1,19 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, and_, desc, func
+from sqlalchemy import select, delete, or_, and_, desc, func
 
 from app.core.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.community import Friendship, FriendshipStatus, Poke
+from app.models.badge import Badge as BadgeModel, UserBadge
 from app.models.workout import WorkoutSession, SessionStatus
 from app.models.notification import PushToken, NotificationSetting
 from app.schemas.community import (
-    FriendRequest, FriendshipResponse, FriendInfo, PokeCreate, PokeResponse,
-    FriendActivityResponse, CoopCelebrateResponse,
+    FriendRequest, FriendshipResponse, FriendInfo, PendingRequestInfo,
+    PokeCreate, PokeResponse, FriendActivityResponse, CoopCelebrateResponse,
 )
 from app.services.fcm_service import fcm_service
 
@@ -44,6 +45,24 @@ async def send_friend_request(
     friendship = Friendship(requester_id=current_user.id, addressee_id=body.addressee_id)
     db.add(friendship)
     await db.flush()
+    await db.refresh(friendship)
+
+    setting_result = await db.execute(
+        select(NotificationSetting).where(NotificationSetting.user_id == body.addressee_id)
+    )
+    setting = setting_result.scalar_one_or_none()
+    if setting and setting.friend_poke:
+        token_result = await db.execute(
+            select(PushToken).where(PushToken.user_id == body.addressee_id, PushToken.is_active == True)
+        )
+        for token in token_result.scalars().all():
+            await fcm_service.send(
+                token=token.token,
+                title="친구 요청이 왔어요 🤝",
+                body=f"{current_user.nickname}님이 친구 요청을 보냈어요.",
+                data={"type": "friend_request", "friendship_id": str(friendship.id)},
+            )
+
     return friendship
 
 
@@ -101,6 +120,13 @@ async def get_my_friends(
         for f in friendships
     }
 
+    equipped_result = await db.execute(
+        select(UserBadge.user_id, BadgeModel.name)
+        .join(BadgeModel, UserBadge.badge_id == BadgeModel.id)
+        .where(UserBadge.user_id.in_(friend_ids), UserBadge.is_equipped.is_(True))
+    )
+    equipped_map = {row[0]: row[1] for row in equipped_result.all()}
+
     return [
         FriendInfo(
             user_id=uid,
@@ -109,10 +135,62 @@ async def get_my_friends(
             character_level=users_map[uid].character_level,
             friendship_id=fs_map[uid].id,
             status=fs_map[uid].status,
+            equipped_badge_name=equipped_map.get(uid),
         )
         for uid in friend_ids
         if uid in users_map
     ]
+
+
+@router.get("/friends/pending", response_model=list[PendingRequestInfo])
+async def get_pending_requests(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """내가 받은 친구 요청 목록 (status=PENDING, addressee=나)."""
+    result = await db.execute(
+        select(Friendship).where(
+            Friendship.addressee_id == current_user.id,
+            Friendship.status == FriendshipStatus.PENDING,
+        )
+    )
+    friendships = result.scalars().all()
+    if not friendships:
+        return []
+
+    requester_ids = [f.requester_id for f in friendships]
+    users_result = await db.execute(
+        select(User).where(User.id.in_(requester_ids), User.is_active == True)
+    )
+    users_map = {u.id: u for u in users_result.scalars().all()}
+    fs_map = {f.requester_id: f for f in friendships}
+
+    return [
+        PendingRequestInfo(
+            friendship_id=fs_map[uid].id,
+            user_id=uid,
+            nickname=users_map[uid].nickname,
+            character_emoji=users_map[uid].character_emoji,
+            character_level=users_map[uid].character_level,
+        )
+        for uid in requester_ids
+        if uid in users_map
+    ]
+
+
+@router.get("/friends/sent", response_model=list[int])
+async def get_sent_request_user_ids(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """내가 보낸 대기 중인 친구 요청의 상대방 user_id 목록."""
+    result = await db.execute(
+        select(Friendship.addressee_id).where(
+            Friendship.requester_id == current_user.id,
+            Friendship.status == FriendshipStatus.PENDING,
+        )
+    )
+    return [row[0] for row in result.all()]
 
 
 @router.delete("/friends/{friendship_id}", status_code=204)
@@ -133,6 +211,20 @@ async def remove_friend(
     friendship = result.scalar_one_or_none()
     if not friendship:
         raise HTTPException(status_code=404, detail="친구 관계를 찾을 수 없어요")
+
+    other_id = (
+        friendship.addressee_id
+        if friendship.requester_id == current_user.id
+        else friendship.requester_id
+    )
+    await db.execute(
+        delete(Poke).where(
+            or_(
+                and_(Poke.sender_id == current_user.id, Poke.receiver_id == other_id),
+                and_(Poke.sender_id == other_id, Poke.receiver_id == current_user.id),
+            )
+        )
+    )
     await db.delete(friendship)
 
 
@@ -147,9 +239,44 @@ async def send_poke(
     if body.receiver_id == current_user.id:
         raise HTTPException(status_code=400, detail="자기 자신을 콕 찌를 수 없어요")
 
+    today_start = datetime.combine(datetime.now().date(), datetime.min.time())
+    existing = await db.execute(
+        select(Poke).where(
+            Poke.sender_id == current_user.id,
+            Poke.receiver_id == body.receiver_id,
+            Poke.created_at >= today_start,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=429, detail="오늘은 이미 콕 찔렀어요. 내일 다시 찌를 수 있어요!")
+
     poke = Poke(sender_id=current_user.id, receiver_id=body.receiver_id, message=body.message)
     db.add(poke)
     await db.flush()
+    await db.refresh(poke)
+
+    try:
+        setting_result = await db.execute(
+            select(NotificationSetting).where(NotificationSetting.user_id == body.receiver_id)
+        )
+        setting = setting_result.scalar_one_or_none()
+        if setting and setting.friend_poke:
+            token_result = await db.execute(
+                select(PushToken).where(PushToken.user_id == body.receiver_id, PushToken.is_active == True)
+            )
+            poke_body = f"{current_user.nickname}님이 콕 찔렀어요 👉"
+            if body.message:
+                poke_body += ' "' + body.message + '"'
+            for token in token_result.scalars().all():
+                await fcm_service.send(
+                    token=token.token,
+                    title="콕 찌르기가 왔어요!",
+                    body=poke_body,
+                    data={"type": "poke", "sender_id": str(current_user.id)},
+                )
+    except Exception:
+        pass
+
     return poke
 
 
@@ -196,9 +323,9 @@ async def get_friend_activity(
     if not friend:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없어요")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
     week_ago = now - timedelta(days=7)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = datetime.combine(now.date(), datetime.min.time())
 
     week_result = await db.execute(
         select(func.count(WorkoutSession.id)).where(
@@ -259,8 +386,7 @@ async def coop_celebrate(
     if not friendship.scalar_one_or_none():
         raise HTTPException(status_code=403, detail="친구가 아니에요")
 
-    now = datetime.now(timezone.utc)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = datetime.combine(datetime.now().date(), datetime.min.time())
 
     async def _worked_out_today(uid: int) -> bool:
         r = await db.execute(

@@ -7,6 +7,7 @@ import axios, { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig 
 import { Platform } from 'react-native';
 
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, storage } from '@/services/storage';
+import type { CharacterData } from '@/components/PixelCharacter';
 import type {
   Badge,
   BodyPart,
@@ -18,11 +19,13 @@ import type {
   NotificationSettings,
   NotificationSettingsUpdate,
   OnboardingPayload,
+  PendingFriendRequest,
   Poke,
   ProfileUpdatePayload,
   SleepStats,
   User,
   UserBadge,
+  UserSearchResult,
   WorkoutPlan,
   WorkoutSessionSummary,
 } from '@/types';
@@ -302,7 +305,14 @@ export async function deleteWorkoutPlan(planId: number): Promise<void> {
 
 export interface ConditionSnapshot {
   plan_name: string | null;
-  weather_desc: string | null;
+  weather_main: string | null;
+  weather_sub: string | null;
+  is_outdoor_ok: boolean | null;
+}
+
+function localDow(): number {
+  // JS getDay(): 0=일~6=토 → 백엔드 0=월~6=일
+  return (new Date().getDay() + 6) % 7;
 }
 
 export async function fetchConditionSnapshot(
@@ -310,9 +320,16 @@ export async function fetchConditionSnapshot(
   lon?: number,
 ): Promise<ConditionSnapshot> {
   const { data } = await api.get<ConditionSnapshot>('/workouts/pre-message', {
-    params: lat != null && lon != null ? { lat, lon } : undefined,
+    params: { dow: localDow(), ...(lat != null && lon != null ? { lat, lon } : {}) },
   });
   return data;
+}
+
+export async function fetchPreCareMessage(): Promise<string> {
+  const { data } = await api.get<{ message: string }>('/workouts/care-message', {
+    params: { dow: localDow() },
+  });
+  return data.message;
 }
 
 export async function fetchWorkoutSessions(limit = 20): Promise<WorkoutSessionSummary[]> {
@@ -395,6 +412,11 @@ export async function equipBadge(badgeId: number): Promise<UserBadge> {
   return data;
 }
 
+export async function checkBadges(): Promise<{ newly_earned: Badge[]; earned_count: number }> {
+  const { data } = await api.post('/badges/check');
+  return data;
+}
+
 // ---------------------------------------------------------------------------
 // Community — Friends & Pokes
 // ---------------------------------------------------------------------------
@@ -404,11 +426,23 @@ export async function fetchFriends(): Promise<Friend[]> {
   return data;
 }
 
-/**
- * 친구 요청 보내기.
- * 백엔드는 닉네임이 아닌 `addressee_id`(상대 user_id)를 받는다.
- * UI에서 닉네임으로 검색해야 한다면 별도의 사용자 검색 엔드포인트가 선행되어야 한다.
- */
+export async function fetchPendingRequests(): Promise<PendingFriendRequest[]> {
+  const { data } = await api.get<PendingFriendRequest[]>('/community/friends/pending');
+  return data;
+}
+
+export async function fetchSentRequestUserIds(): Promise<number[]> {
+  const { data } = await api.get<number[]>('/community/friends/sent');
+  return data;
+}
+
+export async function searchUsers(nickname: string): Promise<UserSearchResult[]> {
+  const { data } = await api.get<UserSearchResult[]>('/users/search', {
+    params: { nickname },
+  });
+  return data;
+}
+
 export async function sendFriendRequest(addresseeId: number): Promise<void> {
   await api.post('/community/friends/request', { addressee_id: addresseeId });
 }
@@ -522,6 +556,19 @@ export async function syncHealthMetrics(metrics: DailyMetricsItem[]): Promise<Da
 
 export async function fetchTodayHealthStats(): Promise<TodayHealthStats> {
   const { data } = await api.get<TodayHealthStats>('/health/stats/today');
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Character
+// ---------------------------------------------------------------------------
+
+export interface CharacterResponse extends CharacterData {
+  equipped_badge_emoji: string | null;
+}
+
+export async function fetchCharacter(): Promise<CharacterResponse> {
+  const { data } = await api.get<CharacterResponse>('/character');
   return data;
 }
 

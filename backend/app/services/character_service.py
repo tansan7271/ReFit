@@ -4,35 +4,17 @@
 GET /character 응답에 필요한 네 기둥 점수(sleep, exercise, diet, routine)와
 실시간 상태(workout_status, is_sleeping)를 계산한다.
 """
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, FitnessLevel, Gender
-from app.models.workout import WorkoutSession, WorkoutSet, Exercise, MuscleGroup, SessionStatus
+from app.models.workout import WorkoutPlan, WorkoutSession, SessionStatus
 from app.models.sleep import SleepRecord
 from app.models.diet import DietRecord
-from app.models.routine import RoutineItem, RoutineLog
 from app.models.badge import UserBadge, Badge
 
-
-# ── workout_part 매핑 ────────────────────────────────────────────────────────
-
-_MUSCLE_TO_PART: dict[MuscleGroup, str | None] = {
-    MuscleGroup.CHEST: "chest",
-    MuscleGroup.BACK: "back",
-    MuscleGroup.SHOULDERS: "shoulders",
-    MuscleGroup.BICEPS: "arms",
-    MuscleGroup.TRICEPS: "arms",
-    MuscleGroup.FOREARMS: "arms",
-    MuscleGroup.CORE: "core",
-    MuscleGroup.GLUTES: "legs",
-    MuscleGroup.QUADS: "legs",
-    MuscleGroup.HAMSTRINGS: "legs",
-    MuscleGroup.CALVES: "legs",
-    MuscleGroup.FULL_BODY: None,
-}
 
 
 # ── TDEE 추정 (Harris-Benedict) ──────────────────────────────────────────────
@@ -56,12 +38,14 @@ def _estimate_tdee(user: User) -> float:
 # ── 수면 점수 (0~100) ────────────────────────────────────────────────────────
 
 async def _calc_sleep_score(user: User, db: AsyncSession) -> float:
-    today = date.today()
+    day_start = datetime.combine(date.today(), datetime.min.time())
+    day_end = day_start + timedelta(days=1)
     result = await db.execute(
         select(SleepRecord)
         .where(
             SleepRecord.user_id == user.id,
-            func.date(SleepRecord.sleep_end) == today,
+            SleepRecord.sleep_end >= day_start,
+            SleepRecord.sleep_end < day_end,
         )
         .order_by(SleepRecord.sleep_end.desc())
         .limit(1)
@@ -87,8 +71,8 @@ async def _calc_sleep_score(user: User, db: AsyncSession) -> float:
 # ── 운동 점수 (0~100) ────────────────────────────────────────────────────────
 
 async def _calc_exercise_score(user: User, db: AsyncSession) -> float:
-    now = datetime.now(timezone.utc)
-    today_start = datetime.combine(date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
+    now = datetime.now()
+    today_start = datetime.combine(date.today(), datetime.min.time())
 
     # 오늘 진행 중인 세션
     active_result = await db.execute(
@@ -124,10 +108,7 @@ async def _calc_exercise_score(user: User, db: AsyncSession) -> float:
     if not last or not last.ended_at:
         return 0.0
 
-    last_ended = last.ended_at
-    if last_ended.tzinfo is None:
-        last_ended = last_ended.replace(tzinfo=timezone.utc)
-    days_since = (now - last_ended).days
+    days_since = (now - last.ended_at).days
 
     if days_since <= 1:
         return 45.0  # 어제 운동 — 휴식일
@@ -187,29 +168,49 @@ async def _calc_diet_score(user: User, db: AsyncSession) -> float:
 
 
 # ── 루틴 점수 (0~100) ────────────────────────────────────────────────────────
+# WorkoutPlan(요일별 운동 계획) 준수율로 계산.
+# 최근 7일 중 운동 계획이 있는 날(비휴식일)만 집계.
+# 계획한 날에 세션을 완료했으면 준수, 아니면 미준수.
+# 계획 자체가 없거나 7일 모두 휴식이면 중립(50).
 
 async def _calc_routine_score(user: User, db: AsyncSession) -> float:
+    plans_result = await db.execute(
+        select(WorkoutPlan).where(WorkoutPlan.user_id == user.id)
+    )
+    plans = {p.day_of_week: p for p in plans_result.scalars().all()}
+
+    if not plans:
+        return 50.0
+
     today = date.today()
+    planned_days = 0
+    followed_days = 0
 
-    total_result = await db.execute(
-        select(func.count(RoutineItem.id)).where(
-            RoutineItem.user_id == user.id,
-            RoutineItem.is_active == True,  # noqa: E712
-        )
-    )
-    total = total_result.scalar() or 0
-    if total == 0:
-        return 50.0  # 루틴 미설정 → 중립
+    for i in range(7):
+        check_date = today - timedelta(days=i)
+        dow = check_date.weekday()  # 0=Mon ~ 6=Sun (백엔드와 동일)
+        plan = plans.get(dow)
+        if plan is None or plan.is_rest_day:
+            continue
 
-    done_result = await db.execute(
-        select(func.count(RoutineLog.id)).where(
-            RoutineLog.user_id == user.id,
-            RoutineLog.date == today,
-            RoutineLog.is_completed == True,  # noqa: E712
+        planned_days += 1
+        day_start = datetime.combine(check_date, datetime.min.time())
+        day_end   = day_start + timedelta(days=1)
+        sess = await db.execute(
+            select(WorkoutSession).where(
+                WorkoutSession.user_id == user.id,
+                WorkoutSession.status == SessionStatus.COMPLETED,
+                WorkoutSession.ended_at >= day_start,
+                WorkoutSession.ended_at < day_end,
+            ).limit(1)
         )
-    )
-    done = done_result.scalar() or 0
-    return round(done / total * 100, 1)
+        if sess.scalar_one_or_none():
+            followed_days += 1
+
+    if planned_days == 0:
+        return 50.0
+
+    return round(followed_days / planned_days * 100, 1)
 
 
 # ── workout_status ───────────────────────────────────────────────────────────
@@ -224,7 +225,7 @@ async def _get_workout_status(user_id: int, db: AsyncSession) -> str:
     if active_result.scalar_one_or_none():
         return "active"
 
-    thirty_min_ago = datetime.now(timezone.utc) - timedelta(minutes=30)
+    thirty_min_ago = datetime.now() - timedelta(minutes=30)
     completed_result = await db.execute(
         select(WorkoutSession).where(
             WorkoutSession.user_id == user_id,
@@ -249,7 +250,7 @@ def _get_is_sleeping(user: User) -> bool:
     except Exception:
         return False
 
-    now = datetime.now()
+    now = datetime.now()  # TZ=Asia/Seoul → KST. bedtime/wakeup도 KST로 저장됨
     current_minutes = now.hour * 60 + now.minute
     bed_minutes = bh * 60 + bm
     wake_minutes = wh * 60 + wm
@@ -262,10 +263,13 @@ def _get_is_sleeping(user: User) -> bool:
 
 
 # ── workout_part ─────────────────────────────────────────────────────────────
+# WorkoutSet은 기록되지 않으므로 completed_parts 문자열에서 첫 번째 부위를 사용.
+# 프론트 BodyPart 타입이 단수형(shoulder/arm/leg)이므로 minidis 복수형으로 정규화.
+
+_PART_NORMALIZE = {"shoulder": "shoulders", "arm": "arms", "leg": "legs"}
 
 async def _get_workout_part(user_id: int, db: AsyncSession) -> str | None:
-    today_start = datetime.combine(date.today(), datetime.min.time()).replace(tzinfo=timezone.utc)
-
+    today_start = datetime.combine(date.today(), datetime.min.time())
     session_result = await db.execute(
         select(WorkoutSession).where(
             WorkoutSession.user_id == user_id,
@@ -274,22 +278,12 @@ async def _get_workout_part(user_id: int, db: AsyncSession) -> str | None:
         ).order_by(WorkoutSession.ended_at.desc()).limit(1)
     )
     session = session_result.scalar_one_or_none()
-    if not session:
+    if not session or not session.completed_parts:
         return None
-
-    # 해당 세션의 세트에서 가장 많이 수행된 근육군 집계
-    sets_result = await db.execute(
-        select(Exercise.muscle_group, func.count(WorkoutSet.id).label("cnt"))
-        .join(WorkoutSet, WorkoutSet.exercise_id == Exercise.id)
-        .where(WorkoutSet.session_id == session.id)
-        .group_by(Exercise.muscle_group)
-        .order_by(func.count(WorkoutSet.id).desc())
-        .limit(1)
-    )
-    row = sets_result.one_or_none()
-    if not row:
+    first = session.completed_parts.split(",")[0].strip()
+    if not first or first == "cardio":
         return None
-    return _MUSCLE_TO_PART.get(row[0])
+    return _PART_NORMALIZE.get(first, first)
 
 
 # ── equipped_badge_emoji ─────────────────────────────────────────────────────

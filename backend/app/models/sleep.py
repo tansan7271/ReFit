@@ -5,7 +5,7 @@
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, SmallInteger, Text, func
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, SmallInteger, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -51,7 +51,7 @@ class SleepRecord(Base):
     )  # 1=manual, 2=apple_health, 3=galaxy_health
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False
+        DateTime, default=datetime.now, nullable=False
     )
 
     user: Mapped["User"] = relationship(back_populates="sleep_records")  # type: ignore[name-defined]

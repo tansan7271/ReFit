@@ -6,7 +6,7 @@
 from datetime import date, datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -38,9 +38,9 @@ class DietRecord(Base):
     fat_g: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     memo: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
     )
 
     user: Mapped["User"] = relationship(back_populates="diet_records")  # type: ignore[name-defined]
@@ -65,6 +65,6 @@ class DietFood(Base):
     carbs_g: Mapped[float | None] = mapped_column(Float, nullable=True)
     fat_g: Mapped[float | None] = mapped_column(Float, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
 
     record: Mapped["DietRecord"] = relationship(back_populates="foods")

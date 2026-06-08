@@ -8,9 +8,10 @@ services:
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
+      TZ: Asia/Seoul
     volumes:
       - refit_db_data:/var/lib/mysql
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+09:00
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -26,6 +27,7 @@ services:
     env_file: .env
     environment:
       DB_HOST: db
+      TZ: Asia/Seoul
     depends_on:
       db:
         condition: service_healthy

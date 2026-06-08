@@ -43,7 +43,16 @@ import {
     updateWorkoutPlan,
 } from "@/services/api";
 import { syncDailyMetrics, syncSleepData } from "@/services/health";
+import { clearCareCache } from "@/services/careCache";
+import {
+    PixelCharacter,
+    CELL_SIZE,
+    type CharacterState,
+    type EnergyLevel,
+    type GrowthLevel,
+} from "@/components/PixelCharacter";
 import { useAuthStore } from "@/store/authStore";
+import { useDebugStore } from "@/store/debugStore";
 import type {
     BodyPart,
     FitnessLevel,
@@ -59,6 +68,18 @@ import type {
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 
 const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
+
+const DEBUG_CHARACTER_STATES: { state: CharacterState; label: string }[] = [
+    { state: "neutral", label: "기본" },
+    { state: "happy", label: "최고 컨디션" },
+    { state: "tired", label: "수면 부족" },
+    { state: "sleeping", label: "수면 중" },
+    { state: "workout", label: "운동 중" },
+    { state: "flex", label: "운동 완료" },
+    { state: "sedentary", label: "운동 부족" },
+    { state: "overfed", label: "식단 불균형" },
+    { state: "derailed", label: "루틴 깨짐" },
+];
 
 const BODY_PARTS: { key: BodyPart; label: string }[] = [
     { key: "chest", label: "가슴" },
@@ -671,7 +692,6 @@ function PhysicalModal({
         <BottomSheet
             visible={visible}
             onClose={onClose}
-            keyboard
             maxHeight="85%"
         >
             <View style={mStyles.handle} />
@@ -685,6 +705,7 @@ function PhysicalModal({
                 style={mStyles.body}
                 contentContainerStyle={{ paddingBottom: 16 }}
                 keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets
             >
                 <Text style={mStyles.label}>키 (cm)</Text>
                 <TextInput
@@ -1316,7 +1337,15 @@ function InBodyModal({
     }, [visible]);
 
     async function handleSave() {
-        const input: InBodyInput = { measured_at: new Date().toISOString() };
+        // 서버는 KST naive datetime을 저장한다. toISOString()은 UTC라 다른 시각들과
+        // 기준이 어긋나므로 KST 로컬 시각을 'YYYY-MM-DDTHH:mm:ss'(offset 없음)로 보낸다.
+        const now = new Date();
+        const measuredAt =
+            `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-` +
+            `${String(now.getDate()).padStart(2, "0")}T` +
+            `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:` +
+            `${String(now.getSeconds()).padStart(2, "0")}`;
+        const input: InBodyInput = { measured_at: measuredAt };
         if (weight.trim()) {
             const v = parseFloat(weight);
             if (isNaN(v) || v < 30 || v > 300) {
@@ -1431,7 +1460,10 @@ function InBodyModal({
                 {error ? <Text style={mStyles.errorText}>{error}</Text> : null}
                 <View style={mStyles.footer}>
                     <Pressable
-                        style={[mStyles.saveBtn, saving && mStyles.saveBtnDisabled]}
+                        style={[
+                            mStyles.saveBtn,
+                            saving && mStyles.saveBtnDisabled,
+                        ]}
                         onPress={handleSave}
                         disabled={saving}
                     >
@@ -1463,10 +1495,23 @@ export default function Profile() {
     const [loading, setLoading] = useState(true);
     const [activeModal, setActiveModal] = useState<ModalType>(null);
     const [routineDay, setRoutineDay] = useState(0);
-    const [debugMode, setDebugMode] = useState(false);
-    const [debugLoading, setDebugLoading] = useState<"pre" | "post" | "morning" | null>(null);
+    const {
+        debugMode,
+        charState: debugCharState,
+        energyLevel: debugEnergyLevel,
+        growthLevel: debugGrowthLevel,
+        setDebugMode,
+        setCharState: setDebugCharState,
+        setEnergyLevel: setDebugEnergyLevel,
+        setGrowthLevel: setDebugGrowthLevel,
+    } = useDebugStore();
+    const [debugLoading, setDebugLoading] = useState<
+        "pre" | "post" | "morning" | null
+    >(null);
     const [healthSyncing, setHealthSyncing] = useState(false);
     const [healthResult, setHealthResult] = useState<string | null>(null);
+    const [cacheClearing, setCacheClearing] = useState(false);
+    const [cacheResult, setCacheResult] = useState<string | null>(null);
 
     useEffect(() => {
         Promise.all([
@@ -1508,17 +1553,21 @@ export default function Profile() {
                 fetchSleepStats(1),
             ]);
             const sleepMin = sleep.avg_duration_minutes;
-            const sleepStr = sleepMin ? `${Math.floor(sleepMin / 60)}시간 ${Math.round(sleepMin % 60)}분` : '없음';
+            const sleepStr = sleepMin
+                ? `${Math.floor(sleepMin / 60)}시간 ${Math.round(sleepMin % 60)}분`
+                : "없음";
             setHealthResult(
-                `✅ sync 완료\n` +
-                `수면: ${sleepStr}\n` +
-                `걸음수: ${stats.steps ?? '없음'}\n` +
-                `활동칼로리: ${stats.active_calories_kcal?.toFixed(0) ?? '없음'} kcal\n` +
-                `안정심박수: ${stats.resting_heart_rate_bpm?.toFixed(0) ?? '없음'} bpm\n` +
-                `평균심박수: ${stats.avg_heart_rate_bpm?.toFixed(0) ?? '없음'} bpm`
+                `✅ Sync 완료\n` +
+                    `수면: ${sleepStr}\n` +
+                    `걸음수: ${stats.steps ?? "없음"}\n` +
+                    `활동칼로리: ${stats.active_calories_kcal?.toFixed(0) ?? "없음"} kcal\n` +
+                    `안정심박수: ${stats.resting_heart_rate_bpm?.toFixed(0) ?? "없음"} bpm\n` +
+                    `평균심박수: ${stats.avg_heart_rate_bpm?.toFixed(0) ?? "없음"} bpm`,
             );
         } catch (e) {
-            setHealthResult(`❌ 실패: ${e instanceof Error ? e.message : String(e)}`);
+            setHealthResult(
+                `❌ 실패: ${e instanceof Error ? e.message : String(e)}`,
+            );
         } finally {
             setHealthSyncing(false);
         }
@@ -1532,7 +1581,11 @@ export default function Profile() {
                 .map(([k, v]) => `${k}: ${v}`)
                 .join("\n");
             const typeLabel =
-                type === "pre" ? "운동 전 케어" : type === "post" ? "운동 후 케어" : "아침 케어";
+                type === "pre"
+                    ? "운동 전 케어"
+                    : type === "post"
+                      ? "운동 후 케어"
+                      : "아침 케어";
             Alert.alert(
                 `[디버그] ${typeLabel}`,
                 `📊 컨텍스트\n${contextLines}\n\n💬 Gemini 메시지\n${result.gemini_message}\n\n📲 FCM: ${result.fcm_sent ? `발송됨 (토큰 ${result.fcm_token_count}개)` : "토큰 없음"}`,
@@ -1843,8 +1896,11 @@ export default function Profile() {
                             </Text>
                             <Switch
                                 value={debugMode}
-                                onValueChange={setDebugMode}
-                                trackColor={{ false: colors.border, true: colors.accent }}
+                                onValueChange={(v) => setDebugMode(v)}
+                                trackColor={{
+                                    false: colors.border,
+                                    true: colors.accent,
+                                }}
                                 thumbColor="#FFFFFF"
                             />
                         </View>
@@ -1852,56 +1908,251 @@ export default function Profile() {
                         {debugMode && (
                             <View style={styles.debugPanel}>
                                 <Text style={styles.debugPanelTitle}>
-                                    헬스 데이터 sync
+                                    헬스 데이터 Sync
                                 </Text>
                                 <Text style={styles.debugPanelSub}>
-                                    HealthKit에서 수면·걸음·심박수를 즉시 가져와 백엔드에 저장합니다
+                                    HealthKit에서 수면·걸음·심박수를 즉시 가져와
+                                    백엔드에 저장합니다
                                 </Text>
                                 <Pressable
-                                    style={[styles.debugBtn, healthSyncing && styles.debugBtnLoading]}
+                                    style={[
+                                        styles.debugBtn,
+                                        healthSyncing && styles.debugBtnLoading,
+                                    ]}
                                     onPress={handleHealthSync}
                                     disabled={healthSyncing}
                                 >
                                     {healthSyncing ? (
-                                        <ActivityIndicator color="#FFFFFF" size="small" />
+                                        <ActivityIndicator
+                                            color="#FFFFFF"
+                                            size="small"
+                                        />
                                     ) : (
-                                        <Text style={styles.debugBtnText}>헬스 데이터 강제 가져오기</Text>
+                                        <Text style={styles.debugBtnText}>
+                                            헬스 데이터 강제 가져오기
+                                        </Text>
                                     )}
                                 </Pressable>
                                 {healthResult && (
-                                    <Text style={styles.debugResultText}>{healthResult}</Text>
+                                    <Text style={styles.debugResultText}>
+                                        {healthResult}
+                                    </Text>
                                 )}
 
-                                <Text style={[styles.debugPanelTitle, { marginTop: 16 }]}>
+                                <Text
+                                    style={[
+                                        styles.debugPanelTitle,
+                                        { marginTop: 16 },
+                                    ]}
+                                >
                                     Gemini 알림 즉시 트리거
                                 </Text>
                                 <Text style={styles.debugPanelSub}>
-                                    스케줄러 없이 현재 데이터 기반 메시지를 즉시 생성·발송합니다
+                                    스케줄러 없이 현재 데이터 기반 메시지를 즉시
+                                    생성·발송합니다
                                 </Text>
 
                                 {(
                                     [
                                         { type: "morning", label: "아침 케어" },
-                                        { type: "pre",     label: "운동 전 케어" },
-                                        { type: "post",    label: "운동 후 케어" },
+                                        { type: "pre", label: "운동 전 케어" },
+                                        { type: "post", label: "운동 후 케어" },
                                     ] as const
                                 ).map(({ type, label }) => (
                                     <Pressable
                                         key={type}
                                         style={[
                                             styles.debugBtn,
-                                            debugLoading === type && styles.debugBtnLoading,
+                                            debugLoading === type &&
+                                                styles.debugBtnLoading,
                                         ]}
                                         onPress={() => handleDebugTrigger(type)}
                                         disabled={debugLoading !== null}
                                     >
                                         {debugLoading === type ? (
-                                            <ActivityIndicator color="#FFFFFF" size="small" />
+                                            <ActivityIndicator
+                                                color="#FFFFFF"
+                                                size="small"
+                                            />
                                         ) : (
-                                            <Text style={styles.debugBtnText}>{label}</Text>
+                                            <Text style={styles.debugBtnText}>
+                                                {label}
+                                            </Text>
                                         )}
                                     </Pressable>
                                 ))}
+
+                                <Text
+                                    style={[
+                                        styles.debugPanelTitle,
+                                        { marginTop: 16 },
+                                    ]}
+                                >
+                                    Gemini 캐시
+                                </Text>
+                                <Text style={styles.debugPanelSub}>
+                                    저장된 케어 메시지를 지웁니다. 앱 재접 시
+                                    백엔드에 새로 요청합니다.
+                                </Text>
+                                <Pressable
+                                    style={[
+                                        styles.debugBtn,
+                                        cacheClearing &&
+                                            styles.debugBtnLoading,
+                                    ]}
+                                    onPress={async () => {
+                                        setCacheClearing(true);
+                                        setCacheResult(null);
+                                        try {
+                                            await clearCareCache();
+                                            setCacheResult("✓ 캐시 삭제 완료");
+                                        } catch {
+                                            setCacheResult("✗ 삭제 실패");
+                                        } finally {
+                                            setCacheClearing(false);
+                                        }
+                                    }}
+                                    disabled={cacheClearing}
+                                >
+                                    {cacheClearing ? (
+                                        <ActivityIndicator
+                                            color="#FFFFFF"
+                                            size="small"
+                                        />
+                                    ) : (
+                                        <Text style={styles.debugBtnText}>
+                                            캐시 지우기
+                                        </Text>
+                                    )}
+                                </Pressable>
+                                {cacheResult && (
+                                    <Text style={styles.debugResultText}>
+                                        {cacheResult}
+                                    </Text>
+                                )}
+
+                                <Text
+                                    style={[
+                                        styles.debugPanelTitle,
+                                        { marginTop: 16 },
+                                    ]}
+                                >
+                                    캐릭터 상태 미리보기
+                                </Text>
+                                <Text style={styles.debugPanelSub}>
+                                    9가지 상태와 에너지 레벨(0–6)이 캐릭터에
+                                    어떻게 반영되는지 확인합니다
+                                </Text>
+                                <View style={styles.debugCharWrap}>
+                                    <PixelCharacter
+                                        state={debugCharState}
+                                        options={{
+                                            energyLevel: debugEnergyLevel,
+                                            growthLevel: debugGrowthLevel,
+                                        }}
+                                        cellSize={CELL_SIZE.card}
+                                    />
+                                </View>
+                                <View style={styles.debugChipRow}>
+                                    {DEBUG_CHARACTER_STATES.map(
+                                        ({ state, label }) => (
+                                            <Pressable
+                                                key={state}
+                                                style={[
+                                                    styles.debugChip,
+                                                    debugCharState === state &&
+                                                        styles.debugChipActive,
+                                                ]}
+                                                onPress={() =>
+                                                    setDebugCharState(state)
+                                                }
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.debugChipText,
+                                                        debugCharState ===
+                                                            state &&
+                                                            styles.debugChipTextActive,
+                                                    ]}
+                                                >
+                                                    {label}
+                                                </Text>
+                                            </Pressable>
+                                        ),
+                                    )}
+                                </View>
+                                <Text
+                                    style={[
+                                        styles.debugPanelSub,
+                                        { marginTop: 8 },
+                                    ]}
+                                >
+                                    에너지 레벨 (수면+루틴 평균 → 몸 색상)
+                                </Text>
+                                <View style={styles.debugEnergyRow}>
+                                    {(
+                                        [0, 1, 2, 3, 4, 5, 6] as EnergyLevel[]
+                                    ).map((lvl) => (
+                                        <Pressable
+                                            key={lvl}
+                                            style={[
+                                                styles.debugEnergyBtn,
+                                                debugEnergyLevel === lvl &&
+                                                    styles.debugEnergyBtnActive,
+                                            ]}
+                                            onPress={() =>
+                                                setDebugEnergyLevel(lvl)
+                                            }
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.debugEnergyBtnText,
+                                                    debugEnergyLevel === lvl &&
+                                                        styles.debugEnergyBtnTextActive,
+                                                ]}
+                                            >
+                                                {lvl}
+                                            </Text>
+                                        </Pressable>
+                                    ))}
+                                </View>
+                                <Text
+                                    style={[
+                                        styles.debugPanelSub,
+                                        { marginTop: 8 },
+                                    ]}
+                                >
+                                    성장 레벨 (character_level → 캐릭터
+                                    크기·형태)
+                                </Text>
+                                <View style={styles.debugEnergyRow}>
+                                    {([1, 2, 3, 4, 5] as GrowthLevel[]).map(
+                                        (lvl) => (
+                                            <Pressable
+                                                key={lvl}
+                                                style={[
+                                                    styles.debugEnergyBtn,
+                                                    debugGrowthLevel === lvl &&
+                                                        styles.debugEnergyBtnActive,
+                                                ]}
+                                                onPress={() =>
+                                                    setDebugGrowthLevel(lvl)
+                                                }
+                                            >
+                                                <Text
+                                                    style={[
+                                                        styles.debugEnergyBtnText,
+                                                        debugGrowthLevel ===
+                                                            lvl &&
+                                                            styles.debugEnergyBtnTextActive,
+                                                    ]}
+                                                >
+                                                    {lvl}
+                                                </Text>
+                                            </Pressable>
+                                        ),
+                                    )}
+                                </View>
                             </View>
                         )}
                     </>
@@ -2037,5 +2288,59 @@ const styles = StyleSheet.create({
         fontSize: fontSize.footnote,
         color: colors.text2,
         lineHeight: 20,
+    },
+    debugCharWrap: {
+        alignItems: "center",
+        paddingVertical: 8,
+    },
+    debugChipRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 6,
+    },
+    debugChip: {
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
+        backgroundColor: colors.bg,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.border,
+    },
+    debugChipActive: {
+        backgroundColor: colors.accent,
+        borderColor: colors.accent,
+    },
+    debugChipText: {
+        fontSize: fontSize.caption,
+        color: colors.text2,
+        fontWeight: fontWeight.medium,
+    },
+    debugChipTextActive: {
+        color: "#FFFFFF",
+    },
+    debugEnergyRow: {
+        flexDirection: "row",
+        gap: 6,
+    },
+    debugEnergyBtn: {
+        flex: 1,
+        paddingVertical: 6,
+        borderRadius: 8,
+        backgroundColor: colors.bg,
+        alignItems: "center",
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.border,
+    },
+    debugEnergyBtnActive: {
+        backgroundColor: colors.accentOrange,
+        borderColor: colors.accentOrange,
+    },
+    debugEnergyBtnText: {
+        fontSize: fontSize.caption,
+        color: colors.text2,
+        fontWeight: fontWeight.medium,
+    },
+    debugEnergyBtnTextActive: {
+        color: "#FFFFFF",
     },
 });

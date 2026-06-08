@@ -254,10 +254,34 @@ export interface SleepStats {
   total_records: number;
 }
 
+// ── User Search ───────────────────────────────────────────────────────────────
+
+export interface UserSearchResult {
+  user_id: number;
+  nickname: string;
+  character_emoji: string;
+  character_level: number;
+}
+
 // ── Community ─────────────────────────────────────────────────────────────────
 
 /** 친구 관계 상태 — 백엔드 FriendshipStatus enum 과 일치 */
 export type FriendshipStatus = 'pending' | 'accepted' | 'blocked';
+
+/** 검색 결과에서의 나와의 관계 상태 */
+export type SearchRelationStatus = 'none' | 'pending_sent' | 'pending_received' | 'accepted';
+
+/**
+ * 받은 친구 요청 1건 — 백엔드 PendingRequestInfo 와 일치.
+ * GET /community/friends/pending 응답.
+ */
+export interface PendingFriendRequest {
+  friendship_id: number;
+  user_id: number;
+  nickname: string;
+  character_emoji: string;
+  character_level: number;
+}
 
 /**
  * 친구 1명 — 백엔드 FriendInfo 와 일치.
@@ -270,6 +294,7 @@ export interface Friend {
   character_emoji: string;
   character_level: number;
   status: FriendshipStatus;
+  equipped_badge_name: string | null;
 }
 
 /**

@@ -1,134 +1,163 @@
-import { useEffect } from 'react';
-import { ActivityIndicator, AppState, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import * as Notifications from 'expo-notifications';
+import { useEffect, useRef, useState } from "react";
+import {
+    ActivityIndicator,
+    Animated,
+    AppState,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Stack, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import * as Notifications from "expo-notifications";
 
-import { colors } from '@/constants/colors';
-import { fontSize, fontWeight } from '@/constants/typography';
-import { useAuthStore } from '@/store/authStore';
-import { syncSleepData, syncDailyMetrics } from '@/services/health';
-import { setPreCareMessage } from '@/services/careCache';
-import '@/services/backgroundTasks'; // defineTask 모듈 최상위 등록
-import { registerHealthSyncTask } from '@/services/backgroundTasks';
+import { colors } from "@/constants/colors";
+import { useAuthStore } from "@/store/authStore";
+import { syncSleepData, syncDailyMetrics } from "@/services/health";
+import { setPreCareMessage } from "@/services/careCache";
+import "@/services/backgroundTasks";
+import { registerHealthSyncTask } from "@/services/backgroundTasks";
 
-// FCM data.type 값 중 운동 전 케어에 해당하는 것
-const PRE_CARE_TYPES = new Set(['morning_care', 'preworkout_care']);
+const PRE_CARE_TYPES = new Set(["morning_care", "preworkout_care"]);
 
-function handleCareNotification(body: string | undefined, data: Record<string, string> | undefined) {
-  if (body && data?.type && PRE_CARE_TYPES.has(data.type)) {
-    setPreCareMessage(body);
-  }
+function handleCareNotification(
+    body: string | undefined,
+    data: Record<string, string> | undefined,
+) {
+    if (body && data?.type && PRE_CARE_TYPES.has(data.type))
+        void setPreCareMessage(body);
 }
 
-// 앱 세션 내 중복 호출 방지 — 하루 1회만 sync
-let lastSleepSyncDate = '';
+let lastSleepSyncDate = "";
 function maybeSyncSleep() {
-  const today = new Date().toISOString().slice(0, 10);
-  if (lastSleepSyncDate === today) return;
-  lastSleepSyncDate = today;
-  syncSleepData().catch(() => {});
+    const today = new Date().toLocaleDateString("sv-SE");
+    if (lastSleepSyncDate === today) return;
+    lastSleepSyncDate = today;
+    syncSleepData().catch(() => {});
 }
 
 function SplashLoading() {
-  return (
-    <View style={styles.splash}>
-      <Text style={styles.brand}>ReFit</Text>
-      <ActivityIndicator color={colors.accent} style={styles.spinner} />
-    </View>
-  );
+    return (
+        <View style={styles.splash}>
+            <Text style={styles.brand}>
+                <Text style={{ color: colors.accent }}>Re</Text>
+                <Text style={{ color: colors.accentOrange }}>Fit</Text>
+            </Text>
+            <ActivityIndicator color={colors.accent} style={styles.spinner} />
+        </View>
+    );
 }
 
 export default function RootLayout() {
-  const router = useRouter();
-  const status = useAuthStore((s) => s.status);
-  const user = useAuthStore((s) => s.user);
+    const router = useRouter();
+    const status = useAuthStore((s) => s.status);
+    const user = useAuthStore((s) => s.user);
 
-  useEffect(() => {
-    useAuthStore.getState().bootstrap();
-  }, []);
+    const [splashMounted, setSplashMounted] = useState(true);
+    const opacityAnim = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    if (status === 'loading') return;
+    useEffect(() => {
+        useAuthStore.getState().bootstrap();
+    }, []);
 
-    if (status === 'unauthenticated') {
-      router.replace('/(auth)/login');
-      return;
-    }
+    useEffect(() => {
+        if (status === "loading") return;
 
-    if (user?.is_onboarding_complete) {
-      router.replace('/(main)');
-    } else {
-      router.replace('/(onboarding)/workout-routine');
-    }
-  }, [status, router]);
+        if (status === "unauthenticated") {
+            router.replace("/(auth)/login");
+        } else if (user?.is_onboarding_complete) {
+            router.replace("/(main)");
+        } else {
+            router.replace("/(onboarding)/workout-routine");
+        }
 
-  // 인증 완료 시 최초 수면 sync + 백그라운드 태스크 등록
-  useEffect(() => {
-    if (status !== 'authenticated') return;
-    maybeSyncSleep();
-    registerHealthSyncTask();
-  }, [status]);
+        // 화면 트랜지션(~350ms) 완료 후 페이드 아웃
+        const t = setTimeout(() => {
+            Animated.timing(opacityAnim, {
+                toValue: 0,
+                duration: 400,
+                useNativeDriver: true,
+            }).start(() => setSplashMounted(false));
+        }, 400);
+        return () => clearTimeout(t);
+    }, [status, router]);
 
-  // 포어그라운드 복귀 시 수면 sync (하루 1회 제한) + 헬스 지표 sync
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active' && useAuthStore.getState().status === 'authenticated') {
+    useEffect(() => {
+        if (status !== "authenticated") return;
         maybeSyncSleep();
-        syncDailyMetrics().catch(() => {});
-      }
-    });
-    return () => sub.remove();
-  }, []);
+        registerHealthSyncTask();
+    }, [status]);
 
-  // 포그라운드 알림 수신 → 케어 메시지 캐시
-  useEffect(() => {
-    const sub = Notifications.addNotificationReceivedListener((notification) => {
-      handleCareNotification(
-        notification.request.content.body ?? undefined,
-        notification.request.content.data as Record<string, string> | undefined,
-      );
-    });
-    return () => sub.remove();
-  }, []);
+    useEffect(() => {
+        const sub = AppState.addEventListener("change", (nextState) => {
+            if (
+                nextState === "active" &&
+                useAuthStore.getState().status === "authenticated"
+            ) {
+                maybeSyncSleep();
+                syncDailyMetrics().catch(() => {});
+            }
+        });
+        return () => sub.remove();
+    }, []);
 
-  // 백그라운드 알림 탭 → 케어 메시지 캐시
-  useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      handleCareNotification(
-        response.notification.request.content.body ?? undefined,
-        response.notification.request.content.data as Record<string, string> | undefined,
-      );
-    });
-    return () => sub.remove();
-  }, []);
+    useEffect(() => {
+        const sub = Notifications.addNotificationReceivedListener(
+            (notification) => {
+                handleCareNotification(
+                    notification.request.content.body ?? undefined,
+                    notification.request.content.data as
+                        | Record<string, string>
+                        | undefined,
+                );
+            },
+        );
+        return () => sub.remove();
+    }, []);
 
-  return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      {status === 'loading' ? (
-        <SplashLoading />
-      ) : (
-        <Stack screenOptions={{ headerShown: false }} />
-      )}
-    </SafeAreaProvider>
-  );
+    useEffect(() => {
+        const sub = Notifications.addNotificationResponseReceivedListener(
+            (response) => {
+                handleCareNotification(
+                    response.notification.request.content.body ?? undefined,
+                    response.notification.request.content.data as
+                        | Record<string, string>
+                        | undefined,
+                );
+            },
+        );
+        return () => sub.remove();
+    }, []);
+
+    return (
+        <SafeAreaProvider>
+            <StatusBar style="dark" />
+            <Stack screenOptions={{ headerShown: false }} />
+            {splashMounted && (
+                <Animated.View
+                    style={[StyleSheet.absoluteFill, { opacity: opacityAnim }]}
+                    pointerEvents="none"
+                >
+                    <SplashLoading />
+                </Animated.View>
+            )}
+        </SafeAreaProvider>
+    );
 }
 
 const styles = StyleSheet.create({
-  splash: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-  },
-  brand: {
-    fontSize: fontSize.largeTitle,
-    fontWeight: fontWeight.bold,
-    color: colors.accent,
-  },
-  spinner: {
-    marginTop: 24,
-  },
+    splash: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: colors.white,
+    },
+    brand: {
+        fontSize: 41,
+        fontWeight: "900",
+    },
+    spinner: {
+        marginTop: 24,
+    },
 });

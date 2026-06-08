@@ -47,14 +47,14 @@ class WorkoutPlanCreate(BaseModel):
     day_of_week: int = Field(ge=0, le=6)  # 0=월 ~ 6=일
     name: str | None = Field(None, max_length=100)
     is_rest_day: bool = False
-    planned_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")  # "HH:MM" UTC
+    planned_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")  # "HH:MM" KST
     exercises: list[PlanExerciseCreate] = []
 
 
 class WorkoutPlanUpdate(BaseModel):
     name: str | None = Field(None, max_length=100)
     is_rest_day: bool | None = None
-    planned_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")
+    planned_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")  # "HH:MM" KST
     exercises: list[PlanExerciseCreate] | None = None
 
 
@@ -150,4 +150,10 @@ class WorkoutSessionSummary(BaseModel):
 
 class PreWorkoutMessageResponse(BaseModel):
     plan_name: str | None = None
-    weather_desc: str | None = None
+    weather_main: str | None = None   # "{city} {temp}°C (체감 {feels_like}°C)"
+    weather_sub: str | None = None    # "{description} · 습도 {humidity}%"
+    is_outdoor_ok: bool | None = None
+
+
+class CareMessageResponse(BaseModel):
+    message: str

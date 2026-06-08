@@ -6,7 +6,7 @@
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -27,9 +27,9 @@ class PushToken(Base):
     token: Mapped[str] = mapped_column(String(512), nullable=False, unique=True)
     platform: Mapped[DevicePlatform] = mapped_column(Enum(DevicePlatform), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
     )
 
     user: Mapped["User"] = relationship(back_populates="push_tokens")  # type: ignore[name-defined]
@@ -61,9 +61,9 @@ class NotificationSetting(Base):
     # AI 코칭 알림
     ai_coaching: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
     )
 
     user: Mapped["User"] = relationship(back_populates="notification_setting")  # type: ignore[name-defined]

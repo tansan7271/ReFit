@@ -1,13 +1,20 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from pydantic import BaseModel, Field, model_validator
 
 
-def _to_utc_naive(dt: datetime) -> datetime:
-    """타임존 있는 datetime을 UTC naive로 변환. 이미 naive면 그대로 반환."""
-    if dt.tzinfo is not None:
-        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
-    return dt.replace(microsecond=0)  # 초 단위로 자름 — DB 비교 일관성 확보
+_KST = timezone(timedelta(hours=9))
+
+def _to_kst_naive(dt: datetime) -> datetime:
+    """datetime을 KST naive로 변환 (서버는 TZ=Asia/Seoul, 모든 시각을 KST naive로 저장).
+
+    - tz-aware (HealthKit/Health Connect는 보통 UTC offset 포함): KST로 변환 후 tz 제거.
+    - naive: 이미 KST 로컬 시각으로 간주, 그대로 사용.
+    """
+    if dt.tzinfo is None:
+        # timezone 없는 naive datetime → 이미 KST 로컬 시각으로 간주
+        return dt.replace(microsecond=0)
+    return dt.astimezone(_KST).replace(tzinfo=None, microsecond=0)
 
 from app.models.sleep import SleepQuality
 
@@ -81,9 +88,9 @@ class SleepSyncItem(BaseModel):
 
     @model_validator(mode="after")
     def normalise_and_validate(self):
-        # 타임존 제거 + 초 단위 정규화 → DB 중복 판정이 정확해짐
-        self.sleep_start = _to_utc_naive(self.sleep_start)
-        self.sleep_end = _to_utc_naive(self.sleep_end)
+        # KST naive 정규화 + 초 단위 절삭 → DB 중복 판정이 정확해짐
+        self.sleep_start = _to_kst_naive(self.sleep_start)
+        self.sleep_end = _to_kst_naive(self.sleep_end)
         if self.sleep_end <= self.sleep_start:
             raise ValueError("sleep_end must be after sleep_start")
         return self

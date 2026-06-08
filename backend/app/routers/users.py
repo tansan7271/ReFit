@@ -9,7 +9,7 @@ from app.models.notification import PushToken
 from app.models.workout import WorkoutPlan
 from app.schemas.user import (
     UserResponse, UserProfileUpdate, InBodyCreate, InBodyResponse, OnboardingRequest,
-    SleepGoalUpdate, SleepGoalResponse, WEEKDAY_TO_DOW,
+    SleepGoalUpdate, SleepGoalResponse, UserSearchResult, WEEKDAY_TO_DOW,
 )
 from app.services.fcm_service import fcm_service
 
@@ -188,6 +188,33 @@ async def get_inbody_history(
         .limit(limit)
     )
     return result.scalars().all()
+
+
+@router.get("/search", response_model=list[UserSearchResult])
+async def search_users(
+    nickname: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not nickname.strip():
+        return []
+    result = await db.execute(
+        select(User).where(
+            User.nickname.ilike(f"%{nickname.strip()}%"),
+            User.id != current_user.id,
+            User.is_active == True,
+        ).limit(10)
+    )
+    users = result.scalars().all()
+    return [
+        UserSearchResult(
+            user_id=u.id,
+            nickname=u.nickname,
+            character_emoji=u.character_emoji,
+            character_level=u.character_level,
+        )
+        for u in users
+    ]
 
 
 @router.get("/{user_id}", response_model=UserResponse)

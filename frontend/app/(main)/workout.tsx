@@ -23,9 +23,10 @@ import {
     startWorkoutSession,
     completeWorkoutSession,
     updateSessionParts,
+    fetchPreCareMessage,
 } from "@/services/api";
 import { utcTimeToLocal } from "@/utils/time";
-import { getPreCareMessage } from "@/services/careCache";
+import { getPreCareMessage, setPreCareMessage, getPostCareMessage, setPostCareMessage } from "@/services/careCache";
 import type { WorkoutPlan } from "@/types";
 
 // 탭 바와 동일한 높이 기준 (main/_layout.tsx의 TAB_BAR_HEIGHT)
@@ -61,9 +62,21 @@ function getWeekStart() {
     return monday;
 }
 
+// 서버는 TZ=Asia/Seoul로 KST naive datetime을 저장·반환한다(Z·offset 없음).
+// 기기 시각도 KST이므로 그대로 파싱하면 KST로 해석된다.
+// Z를 붙이면 UTC로 오인 → +9h 이중 변환되어 날짜가 밀린다.
+function parseServerKst(isoString: string): Date {
+    return new Date(isoString);
+}
+
 function formatSessionDate(isoString: string) {
-    const d = new Date(isoString);
+    const d = parseServerKst(isoString);
     return `${d.getMonth() + 1}/${d.getDate()} (${WEEKDAYS[d.getDay()]})`;
+}
+
+function localDateKey(isoString: string): string {
+    const d = parseServerKst(isoString);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function getPlanBodyParts(plan: WorkoutPlan): string[] {
@@ -133,6 +146,9 @@ export default function WorkoutTab() {
     const [careType, setCareType] = useState<"pre" | "post">("pre");
     const [saving, setSaving] = useState(false);
 
+    // 세션 복원은 최초 1회만 (sessions 리패치마다 post 캐시 재기입 방지)
+    const sessionRestoredRef = useRef(false);
+
     // 완료 모달 애니메이션
     const [sheetMounted, setSheetMounted] = useState(false);
     const sheetTy = useRef(new Animated.Value(900)).current;
@@ -191,20 +207,39 @@ export default function WorkoutTab() {
     useEffect(() => {
         fetchPlans();
         fetchSessions();
-        // FCM으로 받아 캐시된 케어 메시지 복원 (재생성 없음)
-        const cached = getPreCareMessage();
-        if (cached) setCareMessage(cached);
+        (async () => {
+            // post 캐시 먼저 확인 (운동 완료 후 재시작 시 플래시 방지)
+            const cachedPost = await getPostCareMessage();
+            if (cachedPost) {
+                setCareMessage(cachedPost);
+                setCareType("post");
+                return;
+            }
+            // pre 케어 — FCM 캐시 우선, 없으면 on-demand
+            const cached = await getPreCareMessage();
+            if (cached) {
+                setCareMessage(cached);
+            } else {
+                fetchPreCareMessage()
+                    .then((msg) => {
+                        setCareMessage(msg);
+                        void setPreCareMessage(msg);
+                    })
+                    .catch(() => {});
+            }
+        })();
     }, []);
 
-    // 앱 재시작 후 오늘 완료 세션 복원
+    // 앱 재시작 후 오늘 완료 세션 복원 — 최초 1회만 실행
     useEffect(() => {
-        if (sessionsLoading) return;
+        if (sessionsLoading || sessionRestoredRef.current) return;
+        sessionRestoredRef.current = true;
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
         const todaySession = sessions.find(
             (s) =>
                 s.status === "completed" &&
-                new Date(s.started_at) >= todayStart,
+                parseServerKst(s.started_at) >= todayStart,
         );
         if (todaySession) {
             setCompletedToday(true);
@@ -217,6 +252,7 @@ export default function WorkoutTab() {
             if (todaySession.ai_feedback) {
                 setCareMessage(todaySession.ai_feedback);
                 setCareType("post");
+                void setPostCareMessage(todaySession.ai_feedback);
             }
         }
     }, [sessions, sessionsLoading]);
@@ -230,7 +266,7 @@ export default function WorkoutTab() {
         const weekStart = getWeekStart();
         return sessions.filter(
             (s) =>
-                s.status === "completed" && new Date(s.started_at) >= weekStart,
+                s.status === "completed" && parseServerKst(s.started_at) >= weekStart,
         ).length;
     }, [sessions]);
 
@@ -240,7 +276,7 @@ export default function WorkoutTab() {
         const records: DayRecord[] = [];
         for (const s of sessions) {
             if (s.status !== "completed") continue;
-            const dateKey = s.started_at.slice(0, 10);
+            const dateKey = localDateKey(s.started_at);
             if (seen.has(dateKey)) continue;
             seen.add(dateKey);
             records.push({
@@ -307,7 +343,10 @@ export default function WorkoutTab() {
             }
             setCompletedToday(true);
             setCareType("post");
-            if (result.ai_feedback) setCareMessage(result.ai_feedback);
+            if (result.ai_feedback) {
+                setCareMessage(result.ai_feedback);
+                void setPostCareMessage(result.ai_feedback);
+            }
             fetchSessions(true);
         } catch {
             // 실패해도 UI는 닫기만 함
@@ -417,7 +456,7 @@ export default function WorkoutTab() {
                             <Text style={styles.emptyText}>
                                 {careType === "post"
                                     ? "오늘 운동 수고했어요! 리커버리 팁을 준비 중이에요."
-                                    : "기상 후 오늘의 컨디션 분석 팁이 여기에 표시돼요."}
+                                    : "오늘의 운동 전 케어 팁을 불러오는 중이에요."}
                             </Text>
                         )}
                     </View>
@@ -457,7 +496,7 @@ export default function WorkoutTab() {
                 ]}
             >
                 <BlurView
-                    intensity={completedToday ? 25 : 55}
+                    intensity={55}
                     tint="light"
                     style={styles.completionBlur}
                 >
@@ -733,7 +772,7 @@ const styles = StyleSheet.create({
         backgroundColor: "rgba(255,114,0,0.88)",
     },
     completionDone: {
-        backgroundColor: "rgba(255,255,255,0.55)",
+        backgroundColor: "rgba(255,114,0,0.88)",
     },
     completionLabel: {
         fontSize: fontSize.headline,
@@ -741,7 +780,7 @@ const styles = StyleSheet.create({
         color: "#FFFFFF",
     },
     completionLabelDone: {
-        color: "#C06825",
+        color: "#FFFFFF",
     },
 
     // ── 부위 선택 모달

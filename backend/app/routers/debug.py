@@ -4,7 +4,7 @@
 스케줄러 없이 Gemini 알림을 즉시 트리거하고,
 메시지 생성에 사용된 컨텍스트 데이터를 함께 반환한다.
 """
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
@@ -44,18 +44,18 @@ async def trigger_debug_notification(
     current_user: User = Depends(get_current_user),
 ):
     """Gemini 알림을 즉시 생성·발송하고 사용된 컨텍스트를 반환한다."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
     today = now.date()
-    today_utc_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    yesterday_utc_start = today_utc_start - timedelta(days=1)
     today_dow = now.weekday()
+    today_start = datetime.combine(today, datetime.min.time())
+    yesterday_start = today_start - timedelta(days=1)
 
     # 수면
     sleep_result = await db.execute(
         select(func.sum(SleepRecord.duration_minutes)).where(
             SleepRecord.user_id == current_user.id,
-            SleepRecord.sleep_start >= yesterday_utc_start,
-            SleepRecord.sleep_start < today_utc_start,
+            SleepRecord.sleep_start >= yesterday_start,
+            SleepRecord.sleep_start < today_start,
         )
     )
     sleep_minutes = sleep_result.scalar()
@@ -98,16 +98,19 @@ async def trigger_debug_notification(
     )
     last_session = last_session_result.scalar_one_or_none()
 
+    is_rest_day = bool(plan and plan.is_rest_day)
+
     # 공통 컨텍스트
     context: dict[str, Any] = {
         "닉네임": current_user.nickname,
         "운동수준": current_user.fitness_level.value,
+        "휴식일": is_rest_day,
         "수면": f"{sleep_hours}시간" if sleep_hours is not None else "데이터 없음",
         "걸음수": f"{health.steps:,}보" if health and health.steps else "데이터 없음",
         "안정_심박수": f"{health.resting_heart_rate_bpm:.0f}bpm" if health and health.resting_heart_rate_bpm else "데이터 없음",
         "체지방률": f"{inbody.body_fat_percent:.1f}%" if inbody and inbody.body_fat_percent else "데이터 없음",
         "근육량": f"{inbody.muscle_mass_kg:.1f}kg" if inbody and inbody.muscle_mass_kg else "데이터 없음",
-        "오늘_루틴": plan.name if plan else "없음",
+        "오늘_루틴": plan.name if plan and not is_rest_day else ("휴식일" if is_rest_day else "없음"),
     }
 
     # 타입별 Gemini 호출
@@ -125,7 +128,8 @@ async def trigger_debug_notification(
             nickname=current_user.nickname,
             character_emoji=current_user.character_emoji,
             fitness_level=current_user.fitness_level.value,
-            plan_name=plan.name if plan else None,
+            is_rest_day=is_rest_day,
+            plan_name=plan.name if plan and not is_rest_day else None,
             sleep_hours=sleep_hours,
             steps=health.steps if health else None,
             resting_hr=health.resting_heart_rate_bpm if health else None,

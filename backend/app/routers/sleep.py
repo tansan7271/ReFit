@@ -120,8 +120,8 @@ async def get_sleep_stats(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    from datetime import datetime, timedelta, timezone
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    from datetime import datetime, timedelta
+    since = datetime.now() - timedelta(days=days)
 
     result = await db.execute(
         select(
@@ -150,8 +150,8 @@ async def get_sleep_analysis(
     current_user: User = Depends(get_current_user),
 ):
     """최근 수면 통계 기반 Gemini AI 분석 메시지."""
-    from datetime import datetime, timedelta, timezone
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    from datetime import datetime, timedelta
+    since = datetime.now() - timedelta(days=days)
 
     result = await db.execute(
         select(

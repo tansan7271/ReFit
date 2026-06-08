@@ -1,30 +1,17 @@
 /**
- * 로컬 시각 ↔ UTC 변환 유틸
+ * 시각 변환 유틸 (KST 단일 기준)
  *
- * 백엔드는 HH:MM을 UTC로 저장한다.
- * 드럼 피커는 사용자의 로컬 시각을 표시한다.
+ * 서버가 TZ=Asia/Seoul로 동작하며 모든 HH:MM 시각을 KST로 저장한다.
+ * 앱도 KST 기준으로 표시하므로 더 이상 UTC 변환이 필요 없다.
+ * 호출부 호환을 위해 함수 시그니처는 유지하고 항등 변환만 수행한다.
  */
 
-/** "HH:MM" (로컬) → "HH:MM" (UTC) */
+/** "HH:MM" → "HH:MM" (항등 — 이제 KST로 저장하므로 변환 불필요) */
 export function localTimeToUTC(hhmm: string): string {
-  const [h, m] = hhmm.split(':').map(Number);
-  const d = new Date();
-  d.setHours(h, m, 0, 0);
-  return (
-    String(d.getUTCHours()).padStart(2, '0') +
-    ':' +
-    String(d.getUTCMinutes()).padStart(2, '0')
-  );
+  return hhmm;
 }
 
-/** "HH:MM" (UTC) → "HH:MM" (로컬) */
+/** "HH:MM" → "HH:MM" (항등 — KST로 저장하므로 변환 불필요) */
 export function utcTimeToLocal(hhmm: string): string {
-  const [h, m] = hhmm.split(':').map(Number);
-  const d = new Date();
-  d.setUTCHours(h, m, 0, 0);
-  return (
-    String(d.getHours()).padStart(2, '0') +
-    ':' +
-    String(d.getMinutes()).padStart(2, '0')
-  );
+  return hhmm;
 }

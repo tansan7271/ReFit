@@ -6,7 +6,7 @@
 from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -44,7 +44,7 @@ class Badge(Base):
     condition_value: Mapped[int] = mapped_column(Integer, nullable=False)  # 조건 달성 수치
     xp_reward: Mapped[int] = mapped_column(Integer, default=50, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
 
     user_badges: Mapped[list["UserBadge"]] = relationship(back_populates="badge")
 
@@ -60,7 +60,7 @@ class UserBadge(Base):
         Integer, ForeignKey("badges.id"), nullable=False
     )
     is_equipped: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    earned_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    earned_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now)
 
     user: Mapped["User"] = relationship(back_populates="user_badges")  # type: ignore[name-defined]
     badge: Mapped["Badge"] = relationship(back_populates="user_badges")

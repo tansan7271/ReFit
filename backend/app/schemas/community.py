@@ -26,6 +26,15 @@ class FriendInfo(BaseModel):
     character_level: int
     friendship_id: int
     status: FriendshipStatus
+    equipped_badge_name: str | None = None
+
+
+class PendingRequestInfo(BaseModel):
+    friendship_id: int
+    user_id: int
+    nickname: str
+    character_emoji: str
+    character_level: int
 
 
 class PokeCreate(BaseModel):

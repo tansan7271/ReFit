@@ -2,23 +2,19 @@
 APScheduler 기반 스마트 알림 스케줄러
 
 시간 기반 (매분):
-  - workout_reminder_time(HH:MM UTC)과 현재 시각이 일치하는 유저에게
-    Gemini AI 개인화 메시지 포함 운동 알림 FCM 발송
-  - sleep_reminder_time(HH:MM UTC)과 현재 시각이 일치하는 유저에게 수면 준비 알림 발송
+  - sleep_goal_wakeup + 30분 = 현재 KST인 유저에게 아침 케어 팁 FCM 발송
+  - WorkoutPlan.planned_time - 30분 = 현재 KST인 유저에게 운동 전 케어 팁 FCM 발송
+  - sleep_reminder_time(HH:MM KST)과 현재 시각이 일치하는 유저에게 수면 준비 알림 발송
 
-조건 기반 (매일 09:00 UTC):
+조건 기반 (매일 09:00 KST):
   - 최근 3일 운동 기록 없는 유저에게 동기부여 알림 발송 (workout_reminder=True 인 유저만)
-
-이벤트 기반:
-  - 운동 완료 후 delay_hours 시간 뒤 Gemini AI 회복 케어 알림 (session_id 기반)
 """
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import selectinload
 
 from app.models.notification import NotificationSetting, PushToken
 from app.models.workout import WorkoutSession, WorkoutSet, SessionStatus, WorkoutPlan
@@ -55,11 +51,11 @@ async def _send_morning_care() -> None:
 
     수면 데이터를 기반으로 Gemini가 가벼운 아침 컨디션 메시지를 생성한다.
     """
-    now = datetime.now(timezone.utc)
-    # 기상 시각 = 지금 - 30분 → sleep_goal_wakeup과 비교
+    now = datetime.now()
+    # 기상 시각 = 지금 - 30분 → sleep_goal_wakeup과 비교 (KST)
     wakeup_hhmm = (now - timedelta(minutes=30)).strftime("%H:%M")
-    today_utc_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    yesterday_utc_start = today_utc_start - timedelta(days=1)
+    today_start = datetime.combine(now.date(), datetime.min.time())
+    yesterday_start = today_start - timedelta(days=1)
 
     work_items: list[tuple[str, User, float | None]] = []
 
@@ -80,8 +76,8 @@ async def _send_morning_care() -> None:
             sleep_result = await db.execute(
                 select(func.sum(SleepRecord.duration_minutes)).where(
                     SleepRecord.user_id == user.id,
-                    SleepRecord.sleep_start >= yesterday_utc_start,
-                    SleepRecord.sleep_start < today_utc_start,
+                    SleepRecord.sleep_start >= yesterday_start,
+                    SleepRecord.sleep_start < today_start,
                 )
             )
             sleep_minutes = sleep_result.scalar()
@@ -112,14 +108,14 @@ async def _send_preworkout_care() -> None:
     헬스 데이터(걸음수·심박수) + 수면 데이터 기반 Gemini 운동 강도 추천 메시지를 발송.
     고강도 운동 직후(24h 내)면 회복 알림으로 대체.
     """
-    now = datetime.now(timezone.utc)
-    # 운동 예정 시각 = 지금 + 30분 → planned_time과 비교
+    now = datetime.now()
+    # 운동 예정 시각 = 지금 + 30분 → planned_time과 비교 (KST, DB 저장값과 동일)
     planned_hhmm = (now + timedelta(minutes=30)).strftime("%H:%M")
-    today_dow = now.weekday()  # 0=Mon ~ 6=Sun
+    today_dow = now.weekday()  # KST 기준 요일
     yesterday_dt = now - timedelta(hours=24)
     today = now.date()
-    today_utc_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    yesterday_utc_start = today_utc_start - timedelta(days=1)
+    today_start = datetime.combine(today, datetime.min.time())
+    yesterday_start = today_start - timedelta(days=1)
 
     work_items: list[tuple[str, User, bool, dict | None]] = []
 
@@ -159,8 +155,8 @@ async def _send_preworkout_care() -> None:
             sleep_result = await db.execute(
                 select(func.sum(SleepRecord.duration_minutes)).where(
                     SleepRecord.user_id == user.id,
-                    SleepRecord.sleep_start >= yesterday_utc_start,
-                    SleepRecord.sleep_start < today_utc_start,
+                    SleepRecord.sleep_start >= yesterday_start,
+                    SleepRecord.sleep_start < today_start,
                 )
             )
             sleep_minutes = sleep_result.scalar()
@@ -221,8 +217,8 @@ async def _send_preworkout_care() -> None:
 
 
 async def _send_sleep_reminders() -> None:
-    """매분 실행 — sleep_reminder_time이 현재 UTC 시각(HH:MM)인 유저에게 FCM 발송."""
-    current_hhmm = datetime.now(timezone.utc).strftime("%H:%M")
+    """매분 실행 — sleep_reminder_time이 현재 KST 시각(HH:MM)인 유저에게 FCM 발송."""
+    current_hhmm = datetime.now().strftime("%H:%M")
     async with _get_session_factory()() as db:
         result = await db.execute(
             select(NotificationSetting, PushToken)
@@ -247,8 +243,8 @@ async def _send_sleep_reminders() -> None:
 
 
 async def _send_inactivity_reminders() -> None:
-    """매일 09:00 UTC 실행 — 3일 이상 운동 미기록 유저에게 동기부여 알림."""
-    three_days_ago = datetime.now(timezone.utc) - timedelta(days=3)
+    """매일 09:00 KST 실행 — 3일 이상 운동 미기록 유저에게 동기부여 알림."""
+    three_days_ago = datetime.now() - timedelta(days=3)
     async with _get_session_factory()() as db:
         active_users_subq = (
             select(WorkoutSession.user_id)
@@ -280,78 +276,15 @@ async def _send_inactivity_reminders() -> None:
         logger.info("[Scheduler] inactivity_reminder 발송: %d건", len(tokens))
 
 
-async def _send_aftercare_fcm(user_id: int, session_id: int, token: str) -> None:
-    """운동 완료 N시간 후 Gemini AI 회복 케어 알림."""
-    async with _get_session_factory()() as db:
-        session_result = await db.execute(
-            select(WorkoutSession)
-            .where(WorkoutSession.id == session_id)
-            .options(selectinload(WorkoutSession.sets))
-        )
-        session = session_result.scalar_one_or_none()
-
-        user_result = await db.execute(select(User).where(User.id == user_id))
-        user = user_result.scalar_one_or_none()
-
-    if session and user:
-        duration_min = (session.total_duration_sec or 0) // 60
-        completed_sets = sum(1 for s in session.sets if s.is_completed)
-        completed_parts = session.completed_parts.split(",") if session.completed_parts else None
-        body = await gemini_service.post_workout_message(
-            nickname=user.nickname,
-            character_emoji=user.character_emoji,
-            duration_min=duration_min,
-            total_volume_kg=session.total_volume_kg,
-            xp_earned=session.xp_earned,
-            completed_sets=completed_sets,
-            completed_parts=completed_parts,
-        )
-    else:
-        body = "물 충분히 마시고, 단백질 섭취와 스트레칭으로 근육 회복을 도와주세요!"
-
-    await fcm_service.send(
-        token=token,
-        title="회복도 운동이에요 💆",
-        body=body,
-        data={"type": "aftercare_reminder"},
-    )
-
-
-def schedule_aftercare_notification(
-    user_id: int,
-    tokens: list[str],
-    session_id: int,
-    delay_hours: int = 8,
-) -> None:
-    """운동 완료 후 delay_hours 시간 뒤 Gemini 회복 알림 예약."""
-    if not _scheduler or not _scheduler.running:
-        return
-    run_at = datetime.now(timezone.utc) + timedelta(hours=delay_hours)
-    for token in tokens:
-        job_id = f"aftercare_{user_id}_{token[:8]}_{int(run_at.timestamp())}"
-        _scheduler.add_job(
-            _send_aftercare_fcm,
-            "date",
-            run_date=run_at,
-            args=[user_id, session_id, token],
-            id=job_id,
-            replace_existing=True,
-        )
-    logger.info(
-        "[Scheduler] aftercare 예약: user_id=%d, session_id=%d, %d건, %dh 후",
-        user_id, session_id, len(tokens), delay_hours,
-    )
-
-
 def start_scheduler() -> AsyncIOScheduler:
     global _scheduler
-    _scheduler = AsyncIOScheduler(timezone="UTC")
+    _scheduler = AsyncIOScheduler(timezone="Asia/Seoul")
     _scheduler.add_job(_send_morning_care, "cron", minute="*", id="morning_care")
     _scheduler.add_job(_send_preworkout_care, "cron", minute="*", id="preworkout_care")
     _scheduler.add_job(_send_sleep_reminders, "cron", minute="*", id="sleep_reminder")
     _scheduler.add_job(_send_inactivity_reminders, "cron", hour=9, minute=0, id="inactivity_reminder")
     _scheduler.start()
-    logger.info("[Scheduler] APScheduler 시작됨 (아침케어·운동전케어·수면 매분, 비활성 09:00 UTC)")
+    logger.info("[Scheduler] APScheduler 시작됨 (아침케어·운동전케어·수면 매분, 비활성 09:00 KST)")
     return _scheduler
 
 

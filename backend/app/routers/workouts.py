@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,18 +14,16 @@ from app.models.workout import (
     Exercise, WorkoutPlan, WorkoutPlanExercise,
     WorkoutSession, WorkoutSet, SessionStatus,
 )
-from app.models.notification import PushToken, NotificationSetting
 from app.schemas.workout import (
     ExerciseResponse,
     WorkoutPlanCreate, WorkoutPlanUpdate, WorkoutPlanResponse,
     SessionStartRequest, SessionCompleteRequest, SessionUpdatePartsRequest,
     WorkoutSessionResponse, WorkoutSessionSummary,
-    PreWorkoutMessageResponse,
+    PreWorkoutMessageResponse, CareMessageResponse,
 )
 from app.services.gemini_service import gemini_service
 from app.services.weather_service import weather_service
 from app.services.badge_service import check_and_award_badges
-from app.services.scheduler_service import schedule_aftercare_notification
 
 router = APIRouter(prefix="/workouts", tags=["Workouts"])
 
@@ -152,7 +150,7 @@ async def start_session(
     session = WorkoutSession(
         user_id=current_user.id,
         plan_id=body.plan_id,
-        started_at=body.started_at or datetime.now(timezone.utc),
+        started_at=body.started_at or datetime.now(),
         status=SessionStatus.IN_PROGRESS,
     )
     db.add(session)
@@ -182,10 +180,10 @@ async def complete_session(
     if not session:
         raise HTTPException(status_code=404, detail="진행 중인 운동 세션이 없어요")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now()
     session.ended_at = now
     session.status = SessionStatus.COMPLETED
-    session.total_duration_sec = int((now - session.started_at.replace(tzinfo=timezone.utc)).total_seconds())
+    session.total_duration_sec = int((now - session.started_at).total_seconds())
     session.voice_memo = body.voice_memo
     session.calories_burned = body.calories_burned
 
@@ -242,21 +240,6 @@ async def complete_session(
 
     # 뱃지 달성 조건 판별 (XP 업데이트 후)
     await check_and_award_badges(current_user, db)
-
-    # 애프터케어 알림 예약 — ai_coaching 알림 켜진 유저만
-    setting_result = await db.execute(
-        select(NotificationSetting).where(NotificationSetting.user_id == current_user.id)
-    )
-    setting = setting_result.scalar_one_or_none()
-    if setting and setting.ai_coaching:
-        token_result = await db.execute(
-            select(PushToken).where(
-                PushToken.user_id == current_user.id, PushToken.is_active == True
-            )
-        )
-        tokens = [t.token for t in token_result.scalars().all()]
-        if tokens:
-            schedule_aftercare_notification(current_user.id, tokens, session.id)
 
     await db.refresh(session, ["sets"])
     return session
@@ -361,14 +344,13 @@ async def get_pre_workout_message(
     lat: float | None = None,
     lon: float | None = None,
     city: str | None = None,
+    dow: int | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """홈 화면 컨디션 스냅샷 — 날씨 + 오늘 루틴명만 반환. Gemini 호출 없음."""
-    from datetime import date
-
     today = date.today()
-    today_dow = today.weekday()  # 0=월 ~ 6=일
+    today_dow = dow if dow is not None else today.weekday()  # 클라이언트 로컬 요일 우선
 
     # 오늘 루틴 조회
     plan_result = await db.execute(
@@ -380,6 +362,80 @@ async def get_pre_workout_message(
 
     # 날씨
     weather_info = await weather_service.get_weather(city=city, lat=lat, lon=lon)
-    weather_desc = weather_service.describe(weather_info) if weather_info else None
 
-    return PreWorkoutMessageResponse(plan_name=plan_name, weather_desc=weather_desc)
+    return PreWorkoutMessageResponse(
+        plan_name=plan_name,
+        weather_main=(
+            f"{weather_info.city} {weather_info.temp_c}°C (체감 {weather_info.feels_like_c}°C)"
+            if weather_info else None
+        ),
+        weather_sub=(
+            f"{weather_info.description} · 습도 {weather_info.humidity}%"
+            if weather_info else None
+        ),
+        is_outdoor_ok=weather_info.is_outdoor_ok if weather_info else None,
+    )
+
+
+@router.get("/care-message", response_model=CareMessageResponse)
+async def get_care_message(
+    dow: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """운동 탭 on-demand Gemini 케어 메시지. FCM 캐시 없을 때 앱에서 직접 호출."""
+    now = datetime.now()
+    today = now.date()
+    today_dow = dow if dow is not None else now.weekday()
+    today_start = datetime.combine(today, datetime.min.time())
+    yesterday_start = today_start - timedelta(days=1)
+
+    plan_result = await db.execute(
+        select(WorkoutPlan).where(
+            WorkoutPlan.user_id == current_user.id,
+            WorkoutPlan.day_of_week == today_dow,
+        )
+    )
+    plan = plan_result.scalar_one_or_none()
+
+    sleep_result = await db.execute(
+        select(func.sum(SleepRecord.duration_minutes)).where(
+            SleepRecord.user_id == current_user.id,
+            SleepRecord.sleep_start >= yesterday_start,
+            SleepRecord.sleep_start < today_start,
+        )
+    )
+    sleep_minutes = sleep_result.scalar()
+    sleep_hours = round(sleep_minutes / 60, 1) if sleep_minutes else None
+
+    health_result = await db.execute(
+        select(DailyHealthMetrics)
+        .where(DailyHealthMetrics.user_id == current_user.id, DailyHealthMetrics.date == today)
+        .order_by(DailyHealthMetrics.id.desc())
+        .limit(1)
+    )
+    health = health_result.scalar_one_or_none()
+
+    inbody_result = await db.execute(
+        select(UserInBody)
+        .where(UserInBody.user_id == current_user.id)
+        .order_by(UserInBody.measured_at.desc())
+        .limit(1)
+    )
+    inbody = inbody_result.scalar_one_or_none()
+
+    is_rest_day = bool(plan and plan.is_rest_day)
+    message = await gemini_service.pre_workout_message(
+        nickname=current_user.nickname,
+        character_emoji=current_user.character_emoji,
+        fitness_level=current_user.fitness_level.value,
+        is_rest_day=is_rest_day,
+        plan_name=plan.name if plan and not is_rest_day else None,
+        sleep_hours=sleep_hours,
+        steps=health.steps if health else None,
+        resting_hr=health.resting_heart_rate_bpm if health else None,
+        weather_desc=None,
+        body_fat_percent=inbody.body_fat_percent if inbody else None,
+        muscle_mass_kg=inbody.muscle_mass_kg if inbody else None,
+    )
+    return CareMessageResponse(message=message)

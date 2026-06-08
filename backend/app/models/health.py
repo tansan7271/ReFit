@@ -5,7 +5,7 @@
 """
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, SmallInteger, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, SmallInteger, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -37,7 +37,7 @@ class DailyHealthMetrics(Base):
     source: Mapped[int] = mapped_column(SmallInteger, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False
+        DateTime, default=datetime.now, nullable=False
     )
 
     user: Mapped["User"] = relationship(back_populates="daily_health_metrics")  # type: ignore[name-defined]

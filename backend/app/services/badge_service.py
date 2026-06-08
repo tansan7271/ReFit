@@ -1,7 +1,7 @@
 """
 뱃지 자동 지급 서비스 — 운동/수면 완료 후 호출
 """
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
@@ -58,7 +58,7 @@ async def check_and_award_badges(user: User, db: AsyncSession) -> list[Badge]:
             user_badge = UserBadge(
                 user_id=user.id,
                 badge_id=badge.id,
-                earned_at=datetime.now(timezone.utc),
+                earned_at=datetime.now(),
             )
             db.add(user_badge)
             user.character_xp += badge.xp_reward
@@ -114,16 +114,16 @@ async def _get_stat(
 
     elif condition_type == BadgeConditionType.WORKOUT_STREAK:
         result = await db.execute(
-            select(func.date(WorkoutSession.started_at))
+            select(WorkoutSession.started_at)
             .where(
                 WorkoutSession.user_id == user_id,
                 WorkoutSession.status == SessionStatus.COMPLETED,
             )
-            .distinct()
-            .order_by(func.date(WorkoutSession.started_at).desc())
+            .order_by(WorkoutSession.started_at.desc())
         )
-        dates = [row[0] for row in result.all()]
-        value = _calc_streak(dates)
+        timestamps = [row[0] for row in result.all()]
+        kst_dates = sorted({ts.date() for ts in timestamps}, reverse=True)
+        value = _calc_streak(kst_dates)
 
     elif condition_type == BadgeConditionType.TOTAL_VOLUME:
         result = await db.execute(
@@ -142,13 +142,13 @@ async def _get_stat(
 
     elif condition_type == BadgeConditionType.SLEEP_STREAK:
         result = await db.execute(
-            select(func.date(SleepRecord.sleep_start))
+            select(SleepRecord.sleep_start)
             .where(SleepRecord.user_id == user_id)
-            .distinct()
-            .order_by(func.date(SleepRecord.sleep_start).desc())
+            .order_by(SleepRecord.sleep_start.desc())
         )
-        dates = [row[0] for row in result.all()]
-        value = _calc_streak(dates)
+        timestamps = [row[0] for row in result.all()]
+        kst_dates = sorted({ts.date() for ts in timestamps}, reverse=True)
+        value = _calc_streak(kst_dates)
 
     elif condition_type == BadgeConditionType.FRIEND_COUNT:
         result = await db.execute(

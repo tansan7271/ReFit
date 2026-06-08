@@ -29,7 +29,7 @@ except ImportError:
 
 
 class GeminiService:
-    _MODEL = "gemini-1.5-flash"
+    _MODEL = "gemini-3.1-flash-lite"
 
     def __init__(self) -> None:
         self._enabled = bool(settings.GEMINI_API_KEY) and _SDK_AVAILABLE
@@ -41,8 +41,8 @@ class GeminiService:
 
     # ── 내부 헬퍼 ────────────────────────────────────────────────────────────
 
-    # API 호출 타임아웃 (초). 모바일 요청 경로를 막지 않도록 짧게 유지.
-    _REQUEST_TIMEOUT = 10
+    # API 호출 타임아웃 (초). gemini-3.1-flash-lite 콜드스타트 고려해 여유있게 설정.
+    _REQUEST_TIMEOUT = 25
 
     async def _generate(self, prompt: str, fallback: str) -> str:
         if not self._enabled or self._model is None:
@@ -70,6 +70,7 @@ class GeminiService:
         nickname: str,
         character_emoji: str,
         fitness_level: str,
+        is_rest_day: bool = False,
         plan_name: str | None = None,
         weather_desc: str | None = None,
         sleep_hours: float | None = None,
@@ -81,10 +82,8 @@ class GeminiService:
         """운동 시작 전 동기 부여 메시지 (2~3문장).
 
         수면 시간, 걸음수, 안정 심박수, 체성분 데이터가 있으면 컨디션을 반영한 메시지를 생성한다.
+        휴식일이면 회복 중심 메시지를 생성한다.
         """
-        plan_info = f"오늘 루틴: {plan_name}" if plan_name else "자유 운동"
-        weather_info = f"현재 날씨: {weather_desc}." if weather_desc else ""
-
         condition_parts: list[str] = []
         if sleep_hours is not None:
             condition_parts.append(f"어젯밤 수면 {sleep_hours:.1f}시간")
@@ -94,22 +93,47 @@ class GeminiService:
             condition_parts.append(f"안정 심박수 {resting_hr:.0f}bpm")
         condition_info = f"컨디션 정보: {', '.join(condition_parts)}." if condition_parts else ""
 
-        body_comp_parts: list[str] = []
-        if body_fat_percent is not None:
-            body_comp_parts.append(f"체지방률 {body_fat_percent:.1f}%")
-        if muscle_mass_kg is not None:
-            body_comp_parts.append(f"근육량 {muscle_mass_kg:.1f}kg")
-        body_comp_info = f"체성분: {', '.join(body_comp_parts)}." if body_comp_parts else ""
+        if is_rest_day:
+            prompt = (
+                f"너는 피트니스 앱의 친근한 AI 트레이너야. "
+                f"사용자 닉네임: {nickname}, 캐릭터: {character_emoji}, 운동 수준: {fitness_level}. "
+                f"오늘은 루틴상 쉬는 날이야. {condition_info} "
+                f"쉬는 날의 의미와 회복의 중요성을 짧게 짚어주고, "
+                f"가벼운 스트레칭·산책·수분 보충 등 액티브 리커버리 팁을 1가지 자연스럽게 넣어줘. "
+                f"운동을 권유하거나 동기 부여하는 내용은 절대 넣지 마. "
+                f"2~3문장 한국어, 이모지 1개, 존댓말."
+            )
+            fallback = f"{character_emoji} {nickname}님, 오늘은 푹 쉬는 날이에요! 몸이 회복되는 동안 가벼운 스트레칭으로 근육을 풀어줘 보세요 🌿"
+        elif plan_name:
+            weather_info = f"현재 날씨: {weather_desc}." if weather_desc else ""
 
-        prompt = (
-            f"너는 피트니스 앱의 친근한 AI 트레이너야. "
-            f"사용자 닉네임: {nickname}, 캐릭터: {character_emoji}, 운동 수준: {fitness_level}. "
-            f"{plan_info}. {weather_info} {condition_info} {body_comp_info} "
-            f"운동을 막 시작하려는 사용자에게 짧고 활기찬 한국어 응원 메시지를 2~3문장으로 써줘. "
-            f"체성분 정보가 있으면 목표(체지방 감량 또는 근육 증가)에 맞는 오늘 운동 포인트를 자연스럽게 녹여줘. "
-            f"이모지 1~2개 포함, 존댓말 사용."
-        )
-        fallback = f"{character_emoji} {nickname}님, 오늘도 파이팅! 할 수 있어요 💪"
+            body_comp_parts: list[str] = []
+            if body_fat_percent is not None:
+                body_comp_parts.append(f"체지방률 {body_fat_percent:.1f}%")
+            if muscle_mass_kg is not None:
+                body_comp_parts.append(f"근육량 {muscle_mass_kg:.1f}kg")
+            body_comp_info = f"체성분: {', '.join(body_comp_parts)}." if body_comp_parts else ""
+
+            prompt = (
+                f"너는 피트니스 앱의 친근한 AI 트레이너야. "
+                f"사용자 닉네임: {nickname}, 캐릭터: {character_emoji}, 운동 수준: {fitness_level}. "
+                f"오늘 루틴: {plan_name}. {weather_info} {condition_info} {body_comp_info} "
+                f"운동을 막 시작하려는 사용자에게 짧고 활기찬 한국어 응원 메시지를 2~3문장으로 써줘. "
+                f"체성분 정보가 있으면 목표(체지방 감량 또는 근육 증가)에 맞는 오늘 운동 포인트를 자연스럽게 녹여줘. "
+                f"이모지 1~2개 포함, 존댓말 사용."
+            )
+            fallback = f"{character_emoji} {nickname}님, 오늘도 파이팅! 할 수 있어요 💪"
+        else:
+            # 오늘 등록된 루틴 없음 — 일반 컨디션 메시지
+            prompt = (
+                f"너는 건강 앱의 친근한 AI 코치야. "
+                f"사용자 닉네임: {nickname}, 캐릭터: {character_emoji}. "
+                f"오늘은 별도로 등록된 운동 루틴이 없는 날이야. {condition_info} "
+                f"운동을 강요하지 말고, 오늘 컨디션을 바탕으로 몸과 마음을 챙기는 가벼운 한마디를 2문장으로 해줘. "
+                f"이모지 1개, 존댓말."
+            )
+            fallback = f"{character_emoji} {nickname}님, 오늘도 건강한 하루 보내세요!"
+
         return await self._generate(prompt, fallback)
 
     async def morning_care_message(

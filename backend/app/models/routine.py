@@ -8,7 +8,7 @@ from enum import Enum as PyEnum
 
 from sqlalchemy import (
     Boolean, Date, DateTime, Enum, ForeignKey, Integer, String,
-    UniqueConstraint, func,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -40,9 +40,9 @@ class RoutineItem(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime, default=datetime.now, onupdate=datetime.now, nullable=False
     )
 
     user: Mapped["User"] = relationship(back_populates="routine_items")  # type: ignore[name-defined]
@@ -70,6 +70,6 @@ class RoutineLog(Base):
     is_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
 
     item: Mapped["RoutineItem"] = relationship(back_populates="logs")

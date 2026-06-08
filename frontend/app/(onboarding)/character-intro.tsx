@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 
 import { colors } from '@/constants/colors';
 import { fontSize, fontWeight } from '@/constants/typography';
+import { PixelCharacterFromData, CELL_SIZE } from '@/components/PixelCharacter';
 import { submitOnboarding } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
@@ -60,7 +61,10 @@ export default function CharacterIntro() {
         </View>
 
         <View style={styles.content}>
-          <View style={styles.characterPlaceholder} />
+          <PixelCharacterFromData data={null} cellSize={CELL_SIZE.phone} />
+          <Text style={styles.characterDesc}>
+            나의 컨디션과 활동 상태를 투영해주는 캐릭터에요.{'\n'}미니디스와 함께 즐거운 워크아웃 라이프!
+          </Text>
         </View>
 
         <View style={styles.bottomAction}>
@@ -97,12 +101,14 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: fontSize.subhead, color: colors.text2 },
   content: {
     flex: 1, justifyContent: 'center', alignItems: 'center',
+    gap: 24,
   },
-  characterPlaceholder: {
-    width: 160, height: 160, borderRadius: 80,
-    backgroundColor: colors.bg,
-    borderWidth: 2, borderColor: colors.border,
-    borderStyle: 'dashed',
+  characterDesc: {
+    fontSize: fontSize.subhead,
+    color: colors.text2,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 32,
   },
   bottomAction: {
     paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8,
