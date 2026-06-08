@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     Animated,
     Modal,
     Pressable,
@@ -317,6 +318,9 @@ export default function WorkoutTab() {
         dismissCompletionSheet();
         setShowSuccessModal(true);
 
+        // 최초 완료 여부: 이미 완료된 세션 수정이 아니면 최초 완료 → 실패 시 롤백 대상
+        const isFirstCompletion = !(completedToday && todaySessionId !== null);
+
         try {
             let result;
             if (completedToday && todaySessionId !== null) {
@@ -349,7 +353,15 @@ export default function WorkoutTab() {
             }
             fetchSessions(true);
         } catch {
-            // 실패해도 UI는 닫기만 함
+            // 최초 완료 도중 실패한 경우에만 상태 롤백 (수정 실패는 기존 완료 상태 유지)
+            if (isFirstCompletion) {
+                setCompletedToday(false);
+                setTodaySessionId(null);
+            }
+            Alert.alert(
+                "저장 실패",
+                "운동 기록을 저장하지 못했어요. 다시 시도해주세요.",
+            );
         } finally {
             setShowSuccessModal(false);
             setSaving(false);

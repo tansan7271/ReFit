@@ -51,7 +51,10 @@ app.include_router(badges.router,        prefix="/api/v1")
 app.include_router(community.router,     prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(character.router,     prefix="/api/v1")
-app.include_router(debug.router,         prefix="/api/v1")
+
+# 디버그 라우터는 개발 환경(DEBUG=True)에서만 노출 — 프로덕션에서는 등록하지 않음
+if settings.DEBUG:
+    app.include_router(debug.router,     prefix="/api/v1")
 
 
 @app.get("/health")

@@ -116,7 +116,23 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── InBody ─────────────────────────────────────────────────────────────────────
+class UserPublicResponse(BaseModel):
+    """타 유저 공개 프로필 — 이메일 등 민감 정보 제외."""
+    id: int
+    nickname: str
+    age: int | None
+    gender: Gender | None
+    fitness_level: FitnessLevel
+    goal: str | None
+    character_emoji: str
+    character_level: int
+    character_xp: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ── Search ─────────────────────────────────────────────────────────────────────
 
 class UserSearchResult(BaseModel):
     user_id: int

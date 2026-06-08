@@ -279,10 +279,10 @@ async def _send_inactivity_reminders() -> None:
 def start_scheduler() -> AsyncIOScheduler:
     global _scheduler
     _scheduler = AsyncIOScheduler(timezone="Asia/Seoul")
-    _scheduler.add_job(_send_morning_care, "cron", minute="*", id="morning_care")
-    _scheduler.add_job(_send_preworkout_care, "cron", minute="*", id="preworkout_care")
-    _scheduler.add_job(_send_sleep_reminders, "cron", minute="*", id="sleep_reminder")
-    _scheduler.add_job(_send_inactivity_reminders, "cron", hour=9, minute=0, id="inactivity_reminder")
+    _scheduler.add_job(_send_morning_care, "cron", minute="*", id="morning_care", max_instances=1, coalesce=True)
+    _scheduler.add_job(_send_preworkout_care, "cron", minute="*", id="preworkout_care", max_instances=1, coalesce=True)
+    _scheduler.add_job(_send_sleep_reminders, "cron", minute="*", id="sleep_reminder", max_instances=1, coalesce=True)
+    _scheduler.add_job(_send_inactivity_reminders, "cron", hour=9, minute=0, id="inactivity_reminder", max_instances=1, coalesce=True)
     _scheduler.start()
     logger.info("[Scheduler] APScheduler 시작됨 (아침케어·운동전케어·수면 매분, 비활성 09:00 KST)")
     return _scheduler

@@ -8,8 +8,8 @@ from app.models.user import User, UserInBody
 from app.models.notification import PushToken
 from app.models.workout import WorkoutPlan
 from app.schemas.user import (
-    UserResponse, UserProfileUpdate, InBodyCreate, InBodyResponse, OnboardingRequest,
-    SleepGoalUpdate, SleepGoalResponse, UserSearchResult, WEEKDAY_TO_DOW,
+    UserResponse, UserPublicResponse, UserProfileUpdate, InBodyCreate, InBodyResponse,
+    OnboardingRequest, SleepGoalUpdate, SleepGoalResponse, UserSearchResult, WEEKDAY_TO_DOW,
 )
 from app.services.fcm_service import fcm_service
 
@@ -217,7 +217,7 @@ async def search_users(
     ]
 
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserPublicResponse)
 async def get_user_public(
     user_id: int,
     db: AsyncSession = Depends(get_db),

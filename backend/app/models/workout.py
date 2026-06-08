@@ -11,7 +11,7 @@ from enum import Enum as PyEnum
 
 from sqlalchemy import (
     Boolean, DateTime, Enum, Float, Integer, SmallInteger,
-    String, Text, ForeignKey,
+    String, Text, ForeignKey, UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -67,6 +67,9 @@ class Exercise(Base):
 class WorkoutPlan(Base):
     """유저 주간 루틴 — 요일(0=월 ~ 6=일)별 계획"""
     __tablename__ = "workout_plans"
+    __table_args__ = (
+        UniqueConstraint("user_id", "day_of_week", name="uq_user_plan_day"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(

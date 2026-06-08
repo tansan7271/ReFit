@@ -67,6 +67,19 @@ async def create_plan(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # (user_id, day_of_week) 유니크 제약 — 같은 요일 플랜이 이미 있으면 409
+    existing = await db.execute(
+        select(WorkoutPlan).where(
+            WorkoutPlan.user_id == current_user.id,
+            WorkoutPlan.day_of_week == body.day_of_week,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(
+            status_code=409,
+            detail="해당 요일에 이미 운동 플랜이 있어요. 수정하려면 PATCH를 사용하세요.",
+        )
+
     plan = WorkoutPlan(
         user_id=current_user.id,
         day_of_week=body.day_of_week,
