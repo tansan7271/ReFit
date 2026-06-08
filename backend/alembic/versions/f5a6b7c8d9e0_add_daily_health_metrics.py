@@ -1,7 +1,7 @@
 """add daily_health_metrics
 
-Revision ID: d3e4f5a6b7c8
-Revises: c2b3d4e5f6a7
+Revision ID: f5a6b7c8d9e0
+Revises: d3e4f5a6b7c8
 Create Date: 2026-06-08 00:00:00.000000
 
 """
@@ -11,8 +11,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = 'd3e4f5a6b7c8'
-down_revision: Union[str, None] = 'c2b3d4e5f6a7'
+revision: str = 'f5a6b7c8d9e0'
+down_revision: Union[str, None] = 'd3e4f5a6b7c8'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
