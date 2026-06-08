@@ -4,6 +4,7 @@
  */
 import { create } from 'zustand';
 
+import { localTimeToUTC } from '@/utils/time';
 import type {
   BodyPart,
   DayRoutine,
@@ -48,6 +49,8 @@ interface OnboardingState {
 
   /** 운동 부위 토글 */
   toggleBodyPart: (day: Weekday, part: BodyPart) => void;
+  /** 요일별 운동 예정 시각 설정 (null = 미설정) */
+  setPlannedTime: (day: Weekday, time: string | null) => void;
   setSleepGoal: (goal: Partial<SleepGoal>) => void;
   setPhysicalProfile: (profile: Partial<PhysicalProfile>) => void;
   setSkillLevel: (level: SkillLevel) => void;
@@ -95,6 +98,13 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       }),
     })),
 
+  setPlannedTime: (day, time) =>
+    set((state) => ({
+      routines: state.routines.map((r) =>
+        r.day === day ? { ...r, planned_time: time } : r,
+      ),
+    })),
+
   setSleepGoal: (goal) =>
     set((state) => ({ sleepGoal: { ...state.sleepGoal, ...goal } })),
 
@@ -136,10 +146,14 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       // 캐릭터 정보 — 화면 미구현, 값이 없으면 undefined 로 전송
       goal: goal ?? undefined,
       character_emoji: characterEmoji ?? undefined,
-      // 수면 목표 — 백엔드 필드명에 맞춰 snake_case 로 변환
-      sleep_goal_bedtime: sleepGoal.bedTime,
-      sleep_goal_wakeup: sleepGoal.wakeTime,
-      routines,
+      // 수면 목표 — 로컬 시각을 UTC로 변환 후 전송
+      sleep_goal_bedtime: localTimeToUTC(sleepGoal.bedTime),
+      sleep_goal_wakeup: localTimeToUTC(sleepGoal.wakeTime),
+      // planned_time도 로컬→UTC 변환
+      routines: routines.map((r) => ({
+        ...r,
+        planned_time: r.planned_time ? localTimeToUTC(r.planned_time) : null,
+      })),
       healthLinked,
     };
   },

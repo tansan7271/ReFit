@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.rate_limit import limiter
-from app.routers import auth, users, workouts, sleep, badges, community, notifications
+from app.routers import auth, users, workouts, sleep, health, badges, community, notifications, debug
 from app.services.scheduler_service import start_scheduler, stop_scheduler
 
 
@@ -46,9 +46,11 @@ app.include_router(auth.router,          prefix="/api/v1")
 app.include_router(users.router,         prefix="/api/v1")
 app.include_router(workouts.router,      prefix="/api/v1")
 app.include_router(sleep.router,         prefix="/api/v1")
+app.include_router(health.router,        prefix="/api/v1")
 app.include_router(badges.router,        prefix="/api/v1")
 app.include_router(community.router,     prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
+app.include_router(debug.router,         prefix="/api/v1")
 
 
 @app.get("/health")

@@ -2,22 +2,31 @@
 APScheduler 기반 스마트 알림 스케줄러
 
 시간 기반 (매분):
-  - workout_reminder_time(HH:MM UTC)과 현재 시각이 일치하는 유저에게 운동 알림 FCM 발송
+  - workout_reminder_time(HH:MM UTC)과 현재 시각이 일치하는 유저에게
+    Gemini AI 개인화 메시지 포함 운동 알림 FCM 발송
   - sleep_reminder_time(HH:MM UTC)과 현재 시각이 일치하는 유저에게 수면 준비 알림 발송
 
 조건 기반 (매일 09:00 UTC):
   - 최근 3일 운동 기록 없는 유저에게 동기부여 알림 발송 (workout_reminder=True 인 유저만)
+
+이벤트 기반:
+  - 운동 완료 후 delay_hours 시간 뒤 Gemini AI 회복 케어 알림 (session_id 기반)
 """
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import selectinload
 
 from app.models.notification import NotificationSetting, PushToken
-from app.models.workout import WorkoutSession, SessionStatus
+from app.models.workout import WorkoutSession, WorkoutSet, SessionStatus, WorkoutPlan
+from app.models.sleep import SleepRecord
+from app.models.health import DailyHealthMetrics
+from app.models.user import User, UserInBody
 from app.services.fcm_service import fcm_service
+from app.services.gemini_service import gemini_service
 
 logger = logging.getLogger(__name__)
 
@@ -41,47 +50,151 @@ def _calculate_fatigue(session: WorkoutSession) -> float:
     return volume_score + duration_score
 
 
-async def _send_workout_reminders() -> None:
-    """매분 실행 — workout_reminder_time이 현재 UTC 시각(HH:MM)인 유저에게 FCM 발송.
-    직전 24시간 이내 고강도 운동(피로도 >= 5.0)이 있으면 회복 알림으로 대체."""
-    now = datetime.now(timezone.utc)
-    current_hhmm = now.strftime("%H:%M")
-    yesterday = now - timedelta(hours=24)
+async def _send_morning_care() -> None:
+    """매분 실행 — sleep_goal_wakeup + 30분 = 현재 UTC인 유저에게 아침 케어 팁 FCM 발송.
 
-    # (token_str, is_high_fatigue) 목록 구성
-    reminders: list[tuple[str, bool]] = []
+    수면 데이터를 기반으로 Gemini가 가벼운 아침 컨디션 메시지를 생성한다.
+    """
+    now = datetime.now(timezone.utc)
+    # 기상 시각 = 지금 - 30분 → sleep_goal_wakeup과 비교
+    wakeup_hhmm = (now - timedelta(minutes=30)).strftime("%H:%M")
+    today_utc_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_utc_start = today_utc_start - timedelta(days=1)
+
+    work_items: list[tuple[str, User, float | None]] = []
 
     async with _get_session_factory()() as db:
         result = await db.execute(
-            select(NotificationSetting, PushToken)
-            .join(PushToken, PushToken.user_id == NotificationSetting.user_id)
+            select(PushToken, User)
+            .join(User, User.id == PushToken.user_id)
+            .join(NotificationSetting, NotificationSetting.user_id == User.id)
             .where(
                 NotificationSetting.workout_reminder == True,
-                NotificationSetting.workout_reminder_time == current_hhmm,
+                User.sleep_goal_wakeup == wakeup_hhmm,
                 PushToken.is_active == True,
             )
         )
         rows = result.all()
 
-        for setting, token in rows:
+        for token, user in rows:
+            sleep_result = await db.execute(
+                select(func.sum(SleepRecord.duration_minutes)).where(
+                    SleepRecord.user_id == user.id,
+                    SleepRecord.sleep_start >= yesterday_utc_start,
+                    SleepRecord.sleep_start < today_utc_start,
+                )
+            )
+            sleep_minutes = sleep_result.scalar()
+            sleep_hours = round(sleep_minutes / 60, 1) if sleep_minutes else None
+            work_items.append((token.token, user, sleep_hours))
+
+    for token_str, user, sleep_hours in work_items:
+        body = await gemini_service.morning_care_message(
+            nickname=user.nickname,
+            character_emoji=user.character_emoji,
+            sleep_hours=sleep_hours,
+        )
+        await fcm_service.send(
+            token=token_str,
+            title=f"좋은 아침이에요 {user.character_emoji}",
+            body=body,
+            data={"type": "morning_care"},
+        )
+
+    if work_items:
+        logger.info("[Scheduler] morning_care 발송: %d건", len(work_items))
+
+
+async def _send_preworkout_care() -> None:
+    """매분 실행 — WorkoutPlan.planned_time - 30분 = 현재 UTC인 유저에게 운동 전 케어 팁 발송.
+
+    오늘 날짜 요일과 일치하는 플랜의 planned_time - 30분이 현재 시각인 유저를 찾아
+    헬스 데이터(걸음수·심박수) + 수면 데이터 기반 Gemini 운동 강도 추천 메시지를 발송.
+    고강도 운동 직후(24h 내)면 회복 알림으로 대체.
+    """
+    now = datetime.now(timezone.utc)
+    # 운동 예정 시각 = 지금 + 30분 → planned_time과 비교
+    planned_hhmm = (now + timedelta(minutes=30)).strftime("%H:%M")
+    today_dow = now.weekday()  # 0=Mon ~ 6=Sun
+    yesterday_dt = now - timedelta(hours=24)
+    today = now.date()
+    today_utc_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_utc_start = today_utc_start - timedelta(days=1)
+
+    work_items: list[tuple[str, User, bool, dict | None]] = []
+
+    async with _get_session_factory()() as db:
+        result = await db.execute(
+            select(PushToken, User, WorkoutPlan)
+            .join(User, User.id == PushToken.user_id)
+            .join(NotificationSetting, NotificationSetting.user_id == User.id)
+            .join(WorkoutPlan, (WorkoutPlan.user_id == User.id) & (WorkoutPlan.day_of_week == today_dow))
+            .where(
+                NotificationSetting.workout_reminder == True,
+                WorkoutPlan.planned_time == planned_hhmm,
+                WorkoutPlan.is_rest_day == False,
+                PushToken.is_active == True,
+            )
+        )
+        rows = result.all()
+
+        for token, user, plan in rows:
+            # 고강도 운동 여부
             last_result = await db.execute(
                 select(WorkoutSession)
                 .where(
-                    WorkoutSession.user_id == setting.user_id,
+                    WorkoutSession.user_id == user.id,
                     WorkoutSession.status == SessionStatus.COMPLETED,
-                    WorkoutSession.ended_at >= yesterday,
+                    WorkoutSession.ended_at >= yesterday_dt,
                 )
                 .order_by(WorkoutSession.ended_at.desc())
                 .limit(1)
             )
             last_session = last_result.scalar_one_or_none()
-            is_high_fatigue = (
-                _calculate_fatigue(last_session) >= 5.0 if last_session else False
-            )
-            reminders.append((token.token, is_high_fatigue))
+            if last_session and _calculate_fatigue(last_session) >= 5.0:
+                work_items.append((token.token, user, True, None))
+                continue
 
-    for token_str, is_high_fatigue in reminders:
-        if is_high_fatigue:
+            # 수면
+            sleep_result = await db.execute(
+                select(func.sum(SleepRecord.duration_minutes)).where(
+                    SleepRecord.user_id == user.id,
+                    SleepRecord.sleep_start >= yesterday_utc_start,
+                    SleepRecord.sleep_start < today_utc_start,
+                )
+            )
+            sleep_minutes = sleep_result.scalar()
+            sleep_hours = round(sleep_minutes / 60, 1) if sleep_minutes else None
+
+            # 헬스 지표
+            health_result = await db.execute(
+                select(DailyHealthMetrics)
+                .where(DailyHealthMetrics.user_id == user.id, DailyHealthMetrics.date == today)
+                .order_by(DailyHealthMetrics.id.desc())
+                .limit(1)
+            )
+            health = health_result.scalar_one_or_none()
+
+            # 최신 인바디 체성분
+            inbody_result = await db.execute(
+                select(UserInBody)
+                .where(UserInBody.user_id == user.id)
+                .order_by(UserInBody.measured_at.desc())
+                .limit(1)
+            )
+            inbody = inbody_result.scalar_one_or_none()
+
+            work_items.append((token.token, user, False, {
+                "plan_name": plan.name,
+                "sleep_hours": sleep_hours,
+                "steps": health.steps if health else None,
+                "resting_hr": health.resting_heart_rate_bpm if health else None,
+                "body_fat_percent": inbody.body_fat_percent if inbody else None,
+                "muscle_mass_kg": inbody.muscle_mass_kg if inbody else None,
+            }))
+
+    for token_str, user, is_recovery, ai_ctx in work_items:
+        if is_recovery:
             await fcm_service.send(
                 token=token_str,
                 title="오늘은 가볍게 회복하는 날이에요 💆",
@@ -89,15 +202,22 @@ async def _send_workout_reminders() -> None:
                 data={"type": "recovery_reminder"},
             )
         else:
+            body = await gemini_service.pre_workout_message(
+                nickname=user.nickname,
+                character_emoji=user.character_emoji,
+                fitness_level=user.fitness_level.value,
+                weather_desc=None,
+                **ai_ctx,
+            )
             await fcm_service.send(
                 token=token_str,
-                title="운동할 시간이에요! 💪",
-                body="오늘 루틴을 시작해볼까요? 지금 바로 시작하면 캐릭터가 성장해요.",
-                data={"type": "workout_reminder"},
+                title=f"곧 운동 시간이에요! {user.character_emoji}",
+                body=body,
+                data={"type": "preworkout_care"},
             )
-    if reminders:
-        high = sum(1 for _, f in reminders if f)
-        logger.info("[Scheduler] workout_reminder 발송: %d건 (회복 %d건)", len(reminders), high)
+
+    if work_items:
+        logger.info("[Scheduler] preworkout_care 발송: %d건", len(work_items))
 
 
 async def _send_sleep_reminders() -> None:
@@ -160,18 +280,50 @@ async def _send_inactivity_reminders() -> None:
         logger.info("[Scheduler] inactivity_reminder 발송: %d건", len(tokens))
 
 
-async def _send_aftercare_fcm(token: str) -> None:
-    """운동 완료 N시간 후 회복 케어 알림."""
+async def _send_aftercare_fcm(user_id: int, session_id: int, token: str) -> None:
+    """운동 완료 N시간 후 Gemini AI 회복 케어 알림."""
+    async with _get_session_factory()() as db:
+        session_result = await db.execute(
+            select(WorkoutSession)
+            .where(WorkoutSession.id == session_id)
+            .options(selectinload(WorkoutSession.sets))
+        )
+        session = session_result.scalar_one_or_none()
+
+        user_result = await db.execute(select(User).where(User.id == user_id))
+        user = user_result.scalar_one_or_none()
+
+    if session and user:
+        duration_min = (session.total_duration_sec or 0) // 60
+        completed_sets = sum(1 for s in session.sets if s.is_completed)
+        completed_parts = session.completed_parts.split(",") if session.completed_parts else None
+        body = await gemini_service.post_workout_message(
+            nickname=user.nickname,
+            character_emoji=user.character_emoji,
+            duration_min=duration_min,
+            total_volume_kg=session.total_volume_kg,
+            xp_earned=session.xp_earned,
+            completed_sets=completed_sets,
+            completed_parts=completed_parts,
+        )
+    else:
+        body = "물 충분히 마시고, 단백질 섭취와 스트레칭으로 근육 회복을 도와주세요!"
+
     await fcm_service.send(
         token=token,
         title="회복도 운동이에요 💆",
-        body="물 충분히 마시고, 단백질 섭취와 스트레칭으로 근육 회복을 도와주세요!",
+        body=body,
         data={"type": "aftercare_reminder"},
     )
 
 
-def schedule_aftercare_notification(user_id: int, tokens: list[str], delay_hours: int = 8) -> None:
-    """운동 완료 후 delay_hours 시간 뒤 회복 알림 예약."""
+def schedule_aftercare_notification(
+    user_id: int,
+    tokens: list[str],
+    session_id: int,
+    delay_hours: int = 8,
+) -> None:
+    """운동 완료 후 delay_hours 시간 뒤 Gemini 회복 알림 예약."""
     if not _scheduler or not _scheduler.running:
         return
     run_at = datetime.now(timezone.utc) + timedelta(hours=delay_hours)
@@ -181,21 +333,25 @@ def schedule_aftercare_notification(user_id: int, tokens: list[str], delay_hours
             _send_aftercare_fcm,
             "date",
             run_date=run_at,
-            args=[token],
+            args=[user_id, session_id, token],
             id=job_id,
             replace_existing=True,
         )
-    logger.info("[Scheduler] aftercare 예약: user_id=%d, %d건, %dh 후", user_id, len(tokens), delay_hours)
+    logger.info(
+        "[Scheduler] aftercare 예약: user_id=%d, session_id=%d, %d건, %dh 후",
+        user_id, session_id, len(tokens), delay_hours,
+    )
 
 
 def start_scheduler() -> AsyncIOScheduler:
     global _scheduler
     _scheduler = AsyncIOScheduler(timezone="UTC")
-    _scheduler.add_job(_send_workout_reminders, "cron", minute="*", id="workout_reminder")
+    _scheduler.add_job(_send_morning_care, "cron", minute="*", id="morning_care")
+    _scheduler.add_job(_send_preworkout_care, "cron", minute="*", id="preworkout_care")
     _scheduler.add_job(_send_sleep_reminders, "cron", minute="*", id="sleep_reminder")
     _scheduler.add_job(_send_inactivity_reminders, "cron", hour=9, minute=0, id="inactivity_reminder")
     _scheduler.start()
-    logger.info("[Scheduler] APScheduler 시작됨 (운동·수면 매분, 비활성 09:00 UTC)")
+    logger.info("[Scheduler] APScheduler 시작됨 (아침케어·운동전케어·수면 매분, 비활성 09:00 UTC)")
     return _scheduler
 
 

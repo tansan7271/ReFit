@@ -1,147 +1,197 @@
-/**
- * 온보딩 4/5 — 헬스 앱 연동 권한 요청.
- * iOS → Apple 건강(HealthKit), Android → Google Health Connect.
- * 연동 성공/실패 모두 다음 단계로 진행 가능 (선택 사항).
- */
 import { useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { OnboardingScreen } from '@/components/ui/OnboardingScreen';
-import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { colors } from '@/constants/colors';
-import { fontSize, fontWeight, radius } from '@/constants/typography';
-import {
-  getHealthProviderInfo,
-  requestHealthPermissions,
-} from '@/services/health';
+import { fontSize, fontWeight } from '@/constants/typography';
+import { getHealthProviderInfo, requestHealthPermissions } from '@/services/health';
 import { useOnboardingStore } from '@/store/onboardingStore';
 
-type LinkState =
-  | { kind: 'idle' }
-  | { kind: 'requesting' }
-  | { kind: 'linked'; message: string }
-  | { kind: 'failed'; message: string };
+const TOTAL_STEPS = 5;
 
-export default function HealthConnectScreen() {
+function StepDots({ current }: { current: number }) {
+  return (
+    <View style={dotStyles.row}>
+      {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+        <View key={i} style={[dotStyles.dot, i === current - 1 ? dotStyles.active : dotStyles.inactive]} />
+      ))}
+    </View>
+  );
+}
+const dotStyles = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 6 },
+  dot: { height: 6, borderRadius: 3 },
+  active: { width: 20, backgroundColor: colors.accent },
+  inactive: { width: 6, backgroundColor: colors.border },
+});
+
+const FEATURES = ['수면 시간 및 품질', '심박수 및 안정 심박수', '걸음수', '활동 칼로리'];
+
+export default function HealthConnect() {
   const router = useRouter();
-  const setHealthLinked = useOnboardingStore((s) => s.setHealthLinked);
-  const [state, setState] = useState<LinkState>({ kind: 'idle' });
-
-  const provider = getHealthProviderInfo();
-  const isLinked = state.kind === 'linked';
+  const { setHealthLinked } = useOnboardingStore();
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const info = getHealthProviderInfo();
 
   const handleConnect = async () => {
-    setState({ kind: 'requesting' });
-    const result = await requestHealthPermissions();
-    if (result.granted) {
-      setHealthLinked(true);
-      setState({ kind: 'linked', message: result.message });
-    } else {
-      // 거부/불가 모두 진행은 가능 — 수동 입력 폴백 안내
+    setErrorMsg(null);
+    setShowSettings(false);
+    setLoading(true);
+    try {
+      const result = await requestHealthPermissions();
+      setHealthLinked(result.granted);
+      if (result.granted) {
+        router.push('/(onboarding)/character-intro');
+      } else {
+        setErrorMsg(result.message);
+        setShowSettings(result.reason === 'denied');
+      }
+    } catch {
       setHealthLinked(false);
-      setState({ kind: 'failed', message: result.message });
+      setErrorMsg('연동 중 오류가 발생했어요. 나중에 설정에서 다시 시도해주세요.');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleSkip = () => {
+    setHealthLinked(false);
+    router.push('/(onboarding)/character-intro');
+  };
+
   return (
-    <OnboardingScreen
-      step="health-connect"
-      title="건강 데이터 연동"
-      subtitle={`연동하면 수동 입력 없이\n${provider.description}`}
-      nextEnabled
-      nextLabel={isLinked ? '다음 →' : '나중에 하기'}
-      onNext={() => router.push('/(onboarding)/character-intro')}
-      onBack={() => router.back()}
-    >
-      {/* 연동 카드 */}
-      <View style={[styles.card, isLinked && styles.cardLinked]}>
-        <Text style={styles.platformIcon}>
-          {Platform.OS === 'ios' ? '🍎' : '🤖'}
-        </Text>
-        <View style={styles.cardText}>
-          <Text style={styles.providerName}>{provider.name}</Text>
-          <Text style={styles.providerDesc}>{provider.description}</Text>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.root}>
+        <View style={styles.header}>
+          <StepDots current={4} />
+          <Text style={styles.title}>건강 데이터 연동</Text>
+          <Text style={styles.subtitle}>자동으로 운동 데이터를 가져와요</Text>
         </View>
-        {isLinked ? <Text style={styles.linkedBadge}>연동됨</Text> : null}
+
+        <View style={styles.content}>
+          <Text style={styles.icon}>❤️‍🔥</Text>
+          <Text style={styles.providerName}>{info.name}</Text>
+          <Text style={styles.providerDesc}>{info.description}</Text>
+
+          <View style={styles.featureCard}>
+            {FEATURES.map((feat, i) => (
+              <View
+                key={feat}
+                style={[styles.featureRow, i < FEATURES.length - 1 && styles.featureRowBorder]}
+              >
+                <Text style={styles.featureCheck}>✓</Text>
+                <Text style={styles.featureText}>{feat}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Pressable style={styles.skipLink} onPress={handleSkip}>
+            <Text style={styles.skipText}>나중에 설정하기</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.bottomAction}>
+          {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+          {showSettings ? (
+            <Pressable style={styles.settingsBtn} onPress={() => Linking.openSettings()}>
+              <Text style={styles.settingsBtnText}>설정 앱에서 변경하기</Text>
+            </Pressable>
+          ) : null}
+          <View style={styles.bottomRow}>
+            <Pressable style={styles.backBtn} onPress={() => router.back()}>
+              <Ionicons name="chevron-back" size={22} color={colors.text2} />
+            </Pressable>
+            <Pressable
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleConnect}
+              disabled={loading}
+            >
+              {loading
+                ? <ActivityIndicator color={colors.white} />
+                : <Text style={styles.buttonText}>연동하기</Text>
+              }
+            </Pressable>
+          </View>
+        </View>
       </View>
-
-      {/* 상태 메시지 */}
-      {state.kind === 'linked' ? (
-        <Text style={styles.successText}>{state.message}</Text>
-      ) : null}
-      {state.kind === 'failed' ? (
-        <Text style={styles.errorText}>{state.message}</Text>
-      ) : null}
-
-      {/* 연동 버튼 — 성공 후엔 숨김 */}
-      {!isLinked ? (
-        <PrimaryButton
-          label={Platform.OS === 'ios' ? 'Apple 건강 연동' : 'Health Connect 연동'}
-          onPress={handleConnect}
-          loading={state.kind === 'requesting'}
-        />
-      ) : null}
-
-      <Text style={styles.note}>
-        연동은 선택 사항이에요. 건너뛰어도 운동 정보를 직접 입력하면
-        ReFit을 그대로 쓸 수 있어요.
-      </Text>
-    </OnboardingScreen>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.card,
+  safe: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1 },
+  header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32 },
+  title: {
+    fontSize: fontSize.largeTitle, fontWeight: '900', color: colors.text,
+    letterSpacing: -0.5, marginTop: 16, marginBottom: 4,
   },
-  cardLinked: {
-    borderColor: colors.green,
-    backgroundColor: colors.softGreen,
+  subtitle: { fontSize: fontSize.subhead, color: colors.text2 },
+  content: {
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 16,
   },
-  platformIcon: {
-    fontSize: 28,
-  },
-  cardText: {
-    flex: 1,
-  },
+  icon: { fontSize: 64, marginBottom: 20 },
   providerName: {
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.bold,
-    color: colors.text,
-    marginBottom: 2,
+    fontSize: fontSize.title2, fontWeight: fontWeight.bold,
+    color: colors.text, marginBottom: 8,
   },
   providerDesc: {
-    fontSize: fontSize.xs,
-    color: colors.text2,
-    lineHeight: 16,
+    fontSize: fontSize.subhead, color: colors.text2,
+    textAlign: 'center', marginBottom: 28,
   },
-  linkedBadge: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
-    color: colors.green,
+  featureCard: {
+    alignSelf: 'stretch', backgroundColor: colors.bg,
+    borderRadius: 14, overflow: 'hidden',
   },
-  successText: {
-    fontSize: fontSize.sm,
-    color: colors.green,
+  featureRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+  },
+  featureRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  featureCheck: {
+    fontSize: fontSize.body, color: colors.accent,
     fontWeight: fontWeight.semibold,
+  },
+  featureText: { fontSize: fontSize.body, color: colors.text },
+  skipLink: { marginTop: 20, paddingVertical: 8 },
+  skipText: { fontSize: fontSize.subhead, color: colors.text3 },
+  bottomAction: {
+    paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8,
+    backgroundColor: colors.white,
   },
   errorText: {
-    fontSize: fontSize.sm,
-    color: colors.accent2,
-    fontWeight: fontWeight.semibold,
-    lineHeight: 18,
+    color: colors.red, fontSize: fontSize.subhead,
+    textAlign: 'center', marginBottom: 8,
   },
-  note: {
-    fontSize: fontSize.xs,
-    color: colors.text3,
-    lineHeight: 17,
+  settingsBtn: {
+    alignSelf: 'stretch', backgroundColor: colors.bg,
+    borderRadius: 12, paddingVertical: 14,
+    alignItems: 'center', marginBottom: 8,
+  },
+  settingsBtnText: {
+    fontSize: fontSize.subhead, fontWeight: fontWeight.semibold,
+    color: colors.text2,
+  },
+  bottomRow: { flexDirection: 'row', gap: 10 },
+  backBtn: {
+    width: 52, borderRadius: 12, backgroundColor: colors.bg,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  button: {
+    flex: 1, backgroundColor: colors.accent, borderRadius: 12,
+    paddingVertical: 16, alignItems: 'center',
+  },
+  buttonDisabled: { opacity: 0.5 },
+  buttonText: {
+    color: colors.white, fontSize: fontSize.headline,
+    fontWeight: fontWeight.semibold,
   },
 });

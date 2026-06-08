@@ -48,6 +48,7 @@ class DayRoutine(BaseModel):
     """온보딩에서 전달되는 요일별 운동 루틴 1건"""
     day: Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
     bodyParts: list[str] = []  # BodyPart 키: 'chest', 'back' 등
+    planned_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")  # "HH:MM" UTC
 
 
 class OnboardingRequest(BaseModel):

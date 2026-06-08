@@ -72,19 +72,70 @@ class GeminiService:
         fitness_level: str,
         plan_name: str | None = None,
         weather_desc: str | None = None,
+        sleep_hours: float | None = None,
+        steps: int | None = None,
+        resting_hr: float | None = None,
+        body_fat_percent: float | None = None,
+        muscle_mass_kg: float | None = None,
     ) -> str:
-        """운동 시작 전 동기 부여 메시지 (2~3문장)."""
+        """운동 시작 전 동기 부여 메시지 (2~3문장).
+
+        수면 시간, 걸음수, 안정 심박수, 체성분 데이터가 있으면 컨디션을 반영한 메시지를 생성한다.
+        """
         plan_info = f"오늘 루틴: {plan_name}" if plan_name else "자유 운동"
-        weather_info = f"현재 날씨: {weather_desc}" if weather_desc else ""
+        weather_info = f"현재 날씨: {weather_desc}." if weather_desc else ""
+
+        condition_parts: list[str] = []
+        if sleep_hours is not None:
+            condition_parts.append(f"어젯밤 수면 {sleep_hours:.1f}시간")
+        if steps is not None:
+            condition_parts.append(f"오늘 걸음수 {steps:,}보")
+        if resting_hr is not None:
+            condition_parts.append(f"안정 심박수 {resting_hr:.0f}bpm")
+        condition_info = f"컨디션 정보: {', '.join(condition_parts)}." if condition_parts else ""
+
+        body_comp_parts: list[str] = []
+        if body_fat_percent is not None:
+            body_comp_parts.append(f"체지방률 {body_fat_percent:.1f}%")
+        if muscle_mass_kg is not None:
+            body_comp_parts.append(f"근육량 {muscle_mass_kg:.1f}kg")
+        body_comp_info = f"체성분: {', '.join(body_comp_parts)}." if body_comp_parts else ""
 
         prompt = (
             f"너는 피트니스 앱의 친근한 AI 트레이너야. "
             f"사용자 닉네임: {nickname}, 캐릭터: {character_emoji}, 운동 수준: {fitness_level}. "
-            f"{plan_info}. {weather_info} "
+            f"{plan_info}. {weather_info} {condition_info} {body_comp_info} "
             f"운동을 막 시작하려는 사용자에게 짧고 활기찬 한국어 응원 메시지를 2~3문장으로 써줘. "
+            f"체성분 정보가 있으면 목표(체지방 감량 또는 근육 증가)에 맞는 오늘 운동 포인트를 자연스럽게 녹여줘. "
             f"이모지 1~2개 포함, 존댓말 사용."
         )
         fallback = f"{character_emoji} {nickname}님, 오늘도 파이팅! 할 수 있어요 💪"
+        return await self._generate(prompt, fallback)
+
+    async def morning_care_message(
+        self,
+        *,
+        nickname: str,
+        character_emoji: str,
+        sleep_hours: float | None = None,
+        weather_desc: str | None = None,
+    ) -> str:
+        """기상 30분 후 아침 컨디션 케어 메시지 (2~3문장).
+
+        수면 데이터와 날씨 위주로, 가볍게 오늘 컨디션을 체크해 주는 메시지.
+        """
+        sleep_info = f"어젯밤 수면 시간: {sleep_hours:.1f}시간" if sleep_hours else "수면 데이터 없음"
+        weather_info = f"현재 날씨: {weather_desc}" if weather_desc else ""
+
+        prompt = (
+            f"너는 건강 앱의 친근한 AI 코치야. "
+            f"사용자 닉네임: {nickname}, 캐릭터: {character_emoji}. "
+            f"막 기상한 사용자에게 아침 컨디션 메시지를 전달해줘. "
+            f"{sleep_info}. {weather_info} "
+            f"수면 상태를 간단히 평가하고 오늘 하루 컨디션 관리 팁을 1가지 포함해서 "
+            f"2~3문장 한국어로 써줘. 이모지 1개, 존댓말."
+        )
+        fallback = f"🌅 {nickname}님, 좋은 아침이에요! 오늘도 건강한 하루 시작해봐요."
         return await self._generate(prompt, fallback)
 
     async def post_workout_message(
@@ -96,21 +147,33 @@ class GeminiService:
         total_volume_kg: float | None,
         xp_earned: int,
         completed_sets: int,
+        completed_parts: list[str] | None = None,
+        muscle_mass_kg: float | None = None,
     ) -> str:
-        """운동 완료 후 피드백 메시지 (2~3문장)."""
+        """운동 완료 후 수고 칭찬 + 완료 부위별 리커버리 조언 (2~3문장)."""
         volume_info = f"총 볼륨 {total_volume_kg:.1f}kg" if total_volume_kg else ""
+
+        PART_KO = {
+            "chest": "가슴", "back": "등", "shoulder": "어깨",
+            "arm": "팔", "leg": "하체", "core": "코어", "cardio": "유산소",
+        }
+        parts_info = ""
+        if completed_parts:
+            ko_parts = [PART_KO.get(p, p) for p in completed_parts]
+            parts_info = f"오늘 운동한 부위: {', '.join(ko_parts)}."
+
+        muscle_info = f"현재 근육량 {muscle_mass_kg:.1f}kg." if muscle_mass_kg is not None else ""
 
         prompt = (
             f"너는 피트니스 앱의 친근한 AI 트레이너야. "
             f"사용자 닉네임: {nickname}, 캐릭터: {character_emoji}. "
-            f"방금 운동을 완료했어: 운동 시간 {duration_min}분, {volume_info}, "
-            f"완료 세트 {completed_sets}개, 획득 XP {xp_earned}. "
-            f"수고했다는 칭찬과 함께 짧은 한국어 피드백을 2~3문장으로 써줘. "
-            f"이모지 1~2개 포함, 존댓말 사용."
+            f"방금 운동 완료: {volume_info} XP {xp_earned} 획득. {parts_info} {muscle_info} "
+            f"수고했다는 칭찬 1문장 + 오늘 운동한 부위에 맞는 리커버리 팁 1~2문장을 "
+            f"근육 성장 관점에서 한국어로 써줘. 이모지 1~2개, 존댓말."
         )
         fallback = (
-            f"{character_emoji} {nickname}님, {duration_min}분 운동 완료! "
-            f"XP {xp_earned}을 획득했어요. 정말 대단해요! 🎉"
+            f"{character_emoji} {nickname}님, 오늘 운동 완료! "
+            f"XP {xp_earned}을 획득했어요. 충분한 수분 보충과 스트레칭으로 마무리해요 💪"
         )
         return await self._generate(prompt, fallback)
 

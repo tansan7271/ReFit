@@ -109,8 +109,14 @@ function extractErrorMessage(data: ApiErrorData | undefined): string | null {
   const { detail } = data;
   if (Array.isArray(detail)) {
     const first = detail[0];
-    if (first && typeof first.msg === 'string') {
-      return first.msg;
+    if (first) {
+      const field = Array.isArray(first.loc) ? String(first.loc[first.loc.length - 1]) : '';
+      if (field === 'email') return '올바른 이메일 형식이 아니에요.';
+      if (field === 'password') {
+        if (first.type === 'string_too_short') return '비밀번호가 너무 짧아요.';
+        return '비밀번호 형식이 올바르지 않아요.';
+      }
+      if (first.type === 'missing') return '필수 항목을 입력해 주세요.';
     }
     return '입력값을 다시 확인해 주세요.';
   }
@@ -261,11 +267,13 @@ export async function fetchWorkoutPlans(): Promise<WorkoutPlan[]> {
 export async function createWorkoutPlan(
   dayOfWeek: number,
   bodyParts: BodyPart[],
+  plannedTime?: string,
 ): Promise<WorkoutPlan> {
   const { data } = await api.post<WorkoutPlan>('/workouts/plans', {
     day_of_week: dayOfWeek,
     name: bodyParts.join(','),
     is_rest_day: false,
+    planned_time: plannedTime ?? null,
     exercises: [],
   });
   return data;
@@ -274,10 +282,12 @@ export async function createWorkoutPlan(
 export async function updateWorkoutPlan(
   planId: number,
   bodyParts: BodyPart[],
+  plannedTime?: string | null,
 ): Promise<WorkoutPlan> {
   const { data } = await api.patch<WorkoutPlan>(`/workouts/plans/${planId}`, {
     name: bodyParts.join(','),
     is_rest_day: false,
+    ...(plannedTime !== undefined ? { planned_time: plannedTime } : {}),
   });
   return data;
 }
@@ -290,14 +300,18 @@ export async function deleteWorkoutPlan(planId: number): Promise<void> {
 // Workout Sessions
 // ---------------------------------------------------------------------------
 
-export interface PreWorkoutMessage {
-  message: string;
+export interface ConditionSnapshot {
   plan_name: string | null;
   weather_desc: string | null;
 }
 
-export async function fetchPreWorkoutMessage(): Promise<PreWorkoutMessage> {
-  const { data } = await api.get<PreWorkoutMessage>('/workouts/pre-message');
+export async function fetchConditionSnapshot(
+  lat?: number,
+  lon?: number,
+): Promise<ConditionSnapshot> {
+  const { data } = await api.get<ConditionSnapshot>('/workouts/pre-message', {
+    params: lat != null && lon != null ? { lat, lon } : undefined,
+  });
   return data;
 }
 
@@ -317,11 +331,27 @@ export async function startWorkoutSession(planId?: number): Promise<{ id: number
 
 export async function completeWorkoutSession(
   sessionId: number,
-  payload: { sets: unknown[]; calories_burned?: number; voice_memo?: string },
+  payload: {
+    sets: unknown[];
+    calories_burned?: number;
+    voice_memo?: string;
+    completed_parts?: string[];
+  },
 ): Promise<WorkoutSessionSummary> {
   const { data } = await api.post<WorkoutSessionSummary>(
     `/workouts/sessions/${sessionId}/complete`,
     payload,
+  );
+  return data;
+}
+
+export async function updateSessionParts(
+  sessionId: number,
+  completedParts: string[],
+): Promise<WorkoutSessionSummary> {
+  const { data } = await api.patch<WorkoutSessionSummary>(
+    `/workouts/sessions/${sessionId}/parts`,
+    { completed_parts: completedParts },
   );
   return data;
 }
@@ -430,5 +460,86 @@ export async function coopCelebrate(friendId: number): Promise<CoopCelebrateResp
 
 export async function fetchSleepStats(days = 7): Promise<SleepStats> {
   const { data } = await api.get<SleepStats>('/sleep/stats', { params: { days } });
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Health Sync
+// ---------------------------------------------------------------------------
+
+export interface SleepSyncItem {
+  sleep_start: string;
+  sleep_end: string;
+  deep_sleep_minutes?: number | null;
+  rem_sleep_minutes?: number | null;
+  light_sleep_minutes?: number | null;
+  awake_minutes?: number | null;
+  heart_rate_avg?: number | null;
+  hrv_ms?: number | null;
+  /** 2=HealthKit, 3=Health Connect */
+  source: 2 | 3;
+}
+
+export interface SleepSyncResponse {
+  created: number;
+  skipped: number;
+  total: number;
+}
+
+export interface DailyMetricsItem {
+  /** YYYY-MM-DD */
+  date: string;
+  steps?: number | null;
+  active_calories_kcal?: number | null;
+  resting_heart_rate_bpm?: number | null;
+  avg_heart_rate_bpm?: number | null;
+  /** 2=HealthKit, 3=Health Connect */
+  source: 2 | 3;
+}
+
+export interface DailyMetricsSyncResponse {
+  upserted: number;
+  total: number;
+}
+
+export interface TodayHealthStats {
+  date: string;
+  steps: number | null;
+  active_calories_kcal: number | null;
+  resting_heart_rate_bpm: number | null;
+  avg_heart_rate_bpm: number | null;
+}
+
+export async function syncSleep(records: SleepSyncItem[]): Promise<SleepSyncResponse> {
+  const { data } = await api.post<SleepSyncResponse>('/sleep/sync', { records });
+  return data;
+}
+
+export async function syncHealthMetrics(metrics: DailyMetricsItem[]): Promise<DailyMetricsSyncResponse> {
+  const { data } = await api.post<DailyMetricsSyncResponse>('/health/sync', { metrics });
+  return data;
+}
+
+export async function fetchTodayHealthStats(): Promise<TodayHealthStats> {
+  const { data } = await api.get<TodayHealthStats>('/health/stats/today');
+  return data;
+}
+
+// ---------------------------------------------------------------------------
+// Debug
+// ---------------------------------------------------------------------------
+
+export interface DebugTriggerResponse {
+  type: string;
+  gemini_message: string;
+  context: Record<string, string>;
+  fcm_sent: boolean;
+  fcm_token_count: number;
+}
+
+export async function triggerDebugNotification(
+  type: 'pre' | 'post' | 'morning',
+): Promise<DebugTriggerResponse> {
+  const { data } = await api.post<DebugTriggerResponse>('/debug/notifications/trigger', { type });
   return data;
 }

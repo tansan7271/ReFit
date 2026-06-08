@@ -1,230 +1,838 @@
-import { useEffect } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+    ActivityIndicator,
+    Animated,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
 
-import { colors } from '@/constants/colors';
-import { fontSize, fontWeight, spacing } from '@/constants/typography';
-import { useWorkoutStore } from '@/store/workoutStore';
+import { colors } from "@/constants/colors";
+import { fontSize, fontWeight } from "@/constants/typography";
+import { TabBackground } from "@/components/TabBackground";
+import { useWorkoutStore } from "@/store/workoutStore";
+import {
+    startWorkoutSession,
+    completeWorkoutSession,
+    updateSessionParts,
+} from "@/services/api";
+import { utcTimeToLocal } from "@/utils/time";
+import { getPreCareMessage } from "@/services/careCache";
+import type { WorkoutPlan } from "@/types";
 
-const MUSCLE_GROUP_LABEL: Record<string, string> = {
-  chest: '가슴',
-  back: '등',
-  shoulder: '어깨',
-  arm: '팔',
-  leg: '하체',
-  core: '코어',
-  cardio: '유산소',
-};
+// 탭 바와 동일한 높이 기준 (main/_layout.tsx의 TAB_BAR_HEIGHT)
+const TAB_BAR_HEIGHT = 64;
 
-export default function WorkoutScreen() {
-  const router = useRouter();
-  const { plans, sessions, plansLoading, sessionsLoading, fetchPlans, fetchSessions } =
-    useWorkoutStore();
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
-  useEffect(() => {
-    fetchPlans();
-    fetchSessions();
-  }, []);
+const ALL_BODY_PARTS: { key: string; label: string }[] = [
+    { key: "chest", label: "가슴" },
+    { key: "back", label: "등" },
+    { key: "shoulder", label: "어깨" },
+    { key: "arm", label: "팔" },
+    { key: "leg", label: "하체" },
+    { key: "core", label: "코어" },
+    { key: "cardio", label: "유산소" },
+];
 
-  const loading = plansLoading || sessionsLoading;
+const BODY_PART_KO: Record<string, string> = Object.fromEntries(
+    ALL_BODY_PARTS.map(({ key, label }) => [key, label]),
+);
 
-  // 오늘 요일 (백엔드: 0=월 ~ 6=일, JS Date: 0=일 ~ 6=토)
-  const todayDow = new Date().getDay();
-  const backendDow = todayDow === 0 ? 6 : todayDow - 1;
-  const todayPlan = plans.find((p) => p.day_of_week === backendDow);
+function todayBackendDay() {
+    return (new Date().getDay() + 6) % 7;
+}
 
-  // 이번 주 완료 세션 수 (최근 7일)
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const weekCount = sessions.filter(
-    (s) => s.status === 'completed' && new Date(s.started_at).getTime() > weekAgo,
-  ).length;
+function getWeekStart() {
+    const d = new Date();
+    const jsDay = d.getDay();
+    const diff = jsDay === 0 ? 6 : jsDay - 1;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - diff);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+}
 
-  const totalVolume = sessions
-    .filter((s) => s.status === 'completed')
-    .reduce((sum, s) => sum + (s.total_volume_kg ?? 0), 0);
+function formatSessionDate(isoString: string) {
+    const d = new Date(isoString);
+    return `${d.getMonth() + 1}/${d.getDate()} (${WEEKDAYS[d.getDay()]})`;
+}
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.header}>
-          <Text style={styles.headerLabel}>오늘의 운동</Text>
-          <Text style={styles.headerTitle}>
-            {todayPlan
-              ? todayPlan.is_rest_day
-                ? '오늘은 휴식일이에요 😴'
-                : (todayPlan.name
-                    ? todayPlan.name
-                        .split(',')
-                        .map((p) => MUSCLE_GROUP_LABEL[p] ?? p)
-                        .join(' · ')
-                    : '운동 플랜')
-              : '플랜을 아직 설정하지 않았어요'}
-          </Text>
-          <Text style={styles.headerSub}>
-            {todayPlan && !todayPlan.is_rest_day
-              ? `${todayPlan.plan_exercises.length}가지 운동`
-              : '운동 탭에서 플랜을 만들어보세요'}
-          </Text>
-        </View>
+function getPlanBodyParts(plan: WorkoutPlan): string[] {
+    if (plan.name) {
+        return plan.name
+            .split(",")
+            .map((p) => p.trim())
+            .filter(Boolean);
+    }
+    const parts = plan.plan_exercises.map((pe) => pe.exercise.muscle_group);
+    return [...new Set(parts)];
+}
 
-        <View style={styles.body}>
-          {loading ? (
-            <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />
-          ) : (
-            <>
-              {/* 오늘의 플랜 */}
-              {todayPlan && !todayPlan.is_rest_day && todayPlan.plan_exercises.length > 0 ? (
-                <View>
-                  <Text style={styles.sectionTitle}>오늘의 플랜</Text>
-                  <View style={styles.planCard}>
-                    {todayPlan.plan_exercises.map((pe, i) => (
-                      <View
-                        key={pe.id}
-                        style={[
-                          styles.exerciseRow,
-                          i === todayPlan.plan_exercises.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                      >
-                        <View style={[styles.exerciseIcon, { backgroundColor: colors.softBlue }]}>
-                          <Text>{pe.exercise.emoji}</Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.exerciseName}>{pe.exercise.name}</Text>
-                          <Text style={styles.exerciseMeta}>
-                            {pe.target_sets}세트
-                            {pe.target_reps ? ` × ${pe.target_reps}회` : ''}
-                            {pe.target_weight_kg ? ` · ${pe.target_weight_kg}kg` : ''}
-                          </Text>
-                        </View>
-                        <View style={[styles.muscleBadge, { backgroundColor: colors.softGreen }]}>
-                          <Text style={[styles.muscleBadgeText, { color: colors.green }]}>
-                            {MUSCLE_GROUP_LABEL[pe.exercise.muscle_group] ?? pe.exercise.muscle_group}
-                          </Text>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
+interface DayRecord {
+    dateKey: string;
+    dateLabel: string;
+    totalXp: number;
+    parts: string[];
+}
+
+function DayRow({
+    record,
+    showDivider,
+}: {
+    record: DayRecord;
+    showDivider: boolean;
+}) {
+    const partsLabel = record.parts
+        .map((p) => BODY_PART_KO[p] ?? p)
+        .join(" · ");
+    return (
+        <>
+            {showDivider && <View style={styles.sessionDivider} />}
+            <View style={styles.sessionRow}>
+                <View style={styles.sessionLeft}>
+                    <Text style={styles.sessionDate}>{record.dateLabel}</Text>
+                    {partsLabel ? (
+                        <Text style={styles.sessionParts}>{partsLabel}</Text>
+                    ) : null}
                 </View>
-              ) : (
-                <View style={styles.emptyCard}>
-                  <Text style={styles.emptyText}>
-                    {todayPlan?.is_rest_day
-                      ? '오늘은 몸을 쉬게 해주세요 💤'
-                      : '아직 등록된 운동 플랜이 없어요.\n온보딩에서 플랜을 설정해보세요!'}
-                  </Text>
+                <View style={styles.sessionRight}>
+                    <Text style={styles.sessionXp}>+{record.totalXp} XP</Text>
                 </View>
-              )}
+            </View>
+        </>
+    );
+}
 
-              {/* 최근 운동 요약 */}
-              <View>
-                <Text style={styles.sectionTitle}>최근 기록</Text>
-                <View style={styles.summaryRow}>
-                  {[
-                    { label: '이번 주', val: `${weekCount}회` },
+export default function WorkoutTab() {
+    const insets = useSafeAreaInsets();
+    const {
+        plans,
+        sessions,
+        fetchPlans,
+        fetchSessions,
+        plansLoading,
+        sessionsLoading,
+    } = useWorkoutStore();
+
+    // 완료 흐름 상태
+    const [completedToday, setCompletedToday] = useState(false);
+    const [todaySessionId, setTodaySessionId] = useState<number | null>(null);
+    const [showCompletionModal, setShowCompletionModal] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [selectedParts, setSelectedParts] = useState<string[]>([]);
+    const [careMessage, setCareMessage] = useState<string | null>(null);
+    const [careType, setCareType] = useState<"pre" | "post">("pre");
+    const [saving, setSaving] = useState(false);
+
+    // 완료 모달 애니메이션
+    const [sheetMounted, setSheetMounted] = useState(false);
+    const sheetTy = useRef(new Animated.Value(900)).current;
+    const overlayOpacity = useRef(new Animated.Value(0)).current;
+
+    // 열기: 두 상태를 동시에 올리고 RAF로 애니메이션 시작
+    function openCompletionSheet() {
+        if (!completedToday) setSelectedParts(modalBodyParts);
+        sheetTy.setValue(900);
+        overlayOpacity.setValue(0);
+        setSheetMounted(true);
+        setShowCompletionModal(true);
+    }
+
+    // 닫기: 애니메이션 완료 후 두 상태를 동시에 내림 (desync 방지)
+    function dismissCompletionSheet() {
+        Animated.parallel([
+            Animated.timing(overlayOpacity, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+            Animated.timing(sheetTy, {
+                toValue: 900,
+                duration: 220,
+                useNativeDriver: true,
+            }),
+        ]).start(({ finished }) => {
+            if (finished) {
+                setSheetMounted(false);
+                setShowCompletionModal(false);
+            }
+        });
+    }
+
+    // showCompletionModal이 true가 된 직후 슬라이드-인 시작
+    useEffect(() => {
+        if (!showCompletionModal) return;
+        requestAnimationFrame(() => {
+            Animated.parallel([
+                Animated.timing(overlayOpacity, {
+                    toValue: 1,
+                    duration: 250,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(sheetTy, {
+                    toValue: 0,
+                    tension: 65,
+                    friction: 12,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+        });
+    }, [showCompletionModal]);
+
+    useEffect(() => {
+        fetchPlans();
+        fetchSessions();
+        // FCM으로 받아 캐시된 케어 메시지 복원 (재생성 없음)
+        const cached = getPreCareMessage();
+        if (cached) setCareMessage(cached);
+    }, []);
+
+    // 앱 재시작 후 오늘 완료 세션 복원
+    useEffect(() => {
+        if (sessionsLoading) return;
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todaySession = sessions.find(
+            (s) =>
+                s.status === "completed" &&
+                new Date(s.started_at) >= todayStart,
+        );
+        if (todaySession) {
+            setCompletedToday(true);
+            setTodaySessionId(todaySession.id);
+            setSelectedParts(
+                todaySession.completed_parts
+                    ? todaySession.completed_parts.split(",").filter(Boolean)
+                    : [],
+            );
+            if (todaySession.ai_feedback) {
+                setCareMessage(todaySession.ai_feedback);
+                setCareType("post");
+            }
+        }
+    }, [sessions, sessionsLoading]);
+
+    const todayPlan = useMemo(() => {
+        const today = todayBackendDay();
+        return plans.find((p) => p.day_of_week === today) ?? null;
+    }, [plans]);
+
+    const weekCount = useMemo(() => {
+        const weekStart = getWeekStart();
+        return sessions.filter(
+            (s) =>
+                s.status === "completed" && new Date(s.started_at) >= weekStart,
+        ).length;
+    }, [sessions]);
+
+    const recentDayRecords = useMemo((): DayRecord[] => {
+        // sessions은 started_at DESC 정렬 → 날짜별 첫 번째(최신)만 사용
+        const seen = new Set<string>();
+        const records: DayRecord[] = [];
+        for (const s of sessions) {
+            if (s.status !== "completed") continue;
+            const dateKey = s.started_at.slice(0, 10);
+            if (seen.has(dateKey)) continue;
+            seen.add(dateKey);
+            records.push({
+                dateKey,
+                dateLabel: formatSessionDate(s.started_at),
+                totalXp: s.xp_earned,
+                parts: s.completed_parts
+                    ? s.completed_parts.split(",").filter(Boolean)
+                    : [],
+            });
+            if (records.length >= 5) break;
+        }
+        return records;
+    }, [sessions]);
+
+    // 모달에 표시할 부위 목록
+    // 플랜이 있고 휴식일이 아니면 → 플랜 부위만 / 그 외 → 전체 부위
+    const modalBodyParts = useMemo(() => {
+        if (todayPlan && !todayPlan.is_rest_day) {
+            return getPlanBodyParts(todayPlan);
+        }
+        return ALL_BODY_PARTS.map((b) => b.key);
+    }, [todayPlan]);
+
+    const today = new Date();
+    const todayLabel = `${today.getMonth() + 1}월 ${today.getDate()}일 ${WEEKDAYS[today.getDay()]}요일`;
+
+    function togglePart(part: string) {
+        setSelectedParts((prev) =>
+            prev.includes(part)
+                ? prev.filter((p) => p !== part)
+                : [...prev, part],
+        );
+    }
+
+    async function handleSave() {
+        setSaving(true);
+        dismissCompletionSheet();
+        setShowSuccessModal(true);
+
+        try {
+            let result;
+            if (completedToday && todaySessionId !== null) {
+                // 수정: 부위 변경분만큼만 XP 조정, 기본 XP 없음
+                result = await updateSessionParts(
+                    todaySessionId,
+                    selectedParts,
+                );
+                // API 응답 기준으로 즉시 반영 (fetchSessions 완료 전 타이밍 갭 방지)
+                const confirmedParts = result.completed_parts
+                    ? result.completed_parts.split(",").filter(Boolean)
+                    : [];
+                setSelectedParts(confirmedParts);
+            } else {
+                // 최초 완료
+                const { id: sessionId } = await startWorkoutSession(
+                    todayPlan?.id,
+                );
+                result = await completeWorkoutSession(sessionId, {
+                    sets: [],
+                    completed_parts: selectedParts,
+                });
+                setTodaySessionId(sessionId);
+            }
+            setCompletedToday(true);
+            setCareType("post");
+            if (result.ai_feedback) setCareMessage(result.ai_feedback);
+            fetchSessions(true);
+        } catch {
+            // 실패해도 UI는 닫기만 함
+        } finally {
+            setShowSuccessModal(false);
+            setSaving(false);
+        }
+    }
+
+    // 완료 버튼 위치: 탭 바 바로 위 (탭 바와 동일한 bottom 기준 + 탭 바 높이 + gap)
+    const completionButtonBottom = insets.bottom + 10 + TAB_BAR_HEIGHT + 8;
+
+    return (
+        <SafeAreaView style={styles.safe} edges={["top"]}>
+            <TabBackground
+                accentColor="rgba(255,114,0,0.40)"
+                secondaryColor="rgba(255,195,0,0.35)"
+                fadeToColor={colors.bg}
+            />
+
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={[
+                    styles.content,
                     {
-                      label: '총 볼륨',
-                      val: totalVolume > 0
-                        ? `${(totalVolume / 1000).toFixed(1)}t`
-                        : '–',
+                        paddingBottom:
+                            insets.bottom + 10 + TAB_BAR_HEIGHT + 8 + 56 + 24,
                     },
-                    { label: '총 세션', val: `${sessions.filter((s) => s.status === 'completed').length}회` },
-                  ].map((item, i) => (
-                    <View
-                      key={i}
-                      style={[
-                        styles.summaryItem,
-                        i < 2 && { borderRightWidth: 1, borderRightColor: colors.border },
-                      ]}
-                    >
-                      <Text style={styles.summaryVal}>{item.val}</Text>
-                      <Text style={styles.summaryLabel}>{item.label}</Text>
-                    </View>
-                  ))}
+                ]}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* 헤더 */}
+                <View style={styles.header}>
+                    <Text style={styles.dateTitle}>운동</Text>
+                    <Text style={styles.greeting}>
+                        {todayLabel}
+                        {!sessionsLoading && ` · 이번 주 ${weekCount}회`}
+                    </Text>
                 </View>
-              </View>
-            </>
-          )}
 
-          {/* 운동 시작 버튼 */}
-          <TouchableOpacity
-            style={styles.startBtn}
-            onPress={() => router.push('/(main)/pre-workout')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.startBtnText}>운동 전 체크하기 →</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+                {/* 오늘의 플랜 */}
+                <BlurView intensity={70} tint="light" style={styles.card}>
+                    <View style={styles.cardOverlay}>
+                        <Text style={styles.cardLabel}>
+                            오늘의 플랜
+                            {todayPlan?.planned_time
+                                ? ` · ${utcTimeToLocal(todayPlan.planned_time)}`
+                                : ""}
+                        </Text>
+                        {plansLoading ? (
+                            <ActivityIndicator
+                                color={colors.accentOrange}
+                                style={styles.loader}
+                            />
+                        ) : todayPlan == null ? (
+                            <Text style={styles.emptyText}>
+                                오늘 등록된 운동 플랜이 없어요
+                            </Text>
+                        ) : todayPlan.is_rest_day ? (
+                            <View style={styles.restDayRow}>
+                                <Text style={styles.restDayEmoji}>😴</Text>
+                                <Text style={styles.restDayText}>
+                                    오늘은 휴식일이에요
+                                </Text>
+                            </View>
+                        ) : (
+                            <View style={styles.chipsRow}>
+                                {getPlanBodyParts(todayPlan).map((part) => {
+                                    const done =
+                                        completedToday &&
+                                        selectedParts.includes(part);
+                                    return (
+                                        <View
+                                            key={part}
+                                            style={[
+                                                styles.chip,
+                                                done && styles.chipDone,
+                                            ]}
+                                        >
+                                            <Text
+                                                style={[
+                                                    styles.chipText,
+                                                    done && styles.chipTextDone,
+                                                ]}
+                                            >
+                                                {BODY_PART_KO[part] ?? part}
+                                            </Text>
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        )}
+                    </View>
+                </BlurView>
+
+                {/* AI 케어 팁 */}
+                <BlurView intensity={70} tint="light" style={styles.card}>
+                    <View style={styles.cardOverlay}>
+                        <Text style={styles.cardLabel}>
+                            {careType === "post"
+                                ? "운동 후 케어 팁"
+                                : "운동 전 케어 팁"}
+                        </Text>
+                        {careMessage ? (
+                            <Text style={styles.careText}>{careMessage}</Text>
+                        ) : (
+                            <Text style={styles.emptyText}>
+                                {careType === "post"
+                                    ? "오늘 운동 수고했어요! 리커버리 팁을 준비 중이에요."
+                                    : "기상 후 오늘의 컨디션 분석 팁이 여기에 표시돼요."}
+                            </Text>
+                        )}
+                    </View>
+                </BlurView>
+
+                {/* 최근 기록 */}
+                <BlurView intensity={70} tint="light" style={styles.card}>
+                    <View style={styles.cardOverlay}>
+                        <Text style={styles.cardLabel}>최근 기록</Text>
+                        {sessionsLoading ? (
+                            <ActivityIndicator
+                                color={colors.accentOrange}
+                                style={styles.loader}
+                            />
+                        ) : recentDayRecords.length === 0 ? (
+                            <Text style={styles.emptyText}>
+                                아직 운동 기록이 없어요
+                            </Text>
+                        ) : (
+                            recentDayRecords.map((record, i) => (
+                                <DayRow
+                                    key={record.dateKey}
+                                    record={record}
+                                    showDivider={i > 0}
+                                />
+                            ))
+                        )}
+                    </View>
+                </BlurView>
+            </ScrollView>
+
+            {/* 오늘의 플랜 완료 버튼 — 탭 바 위 고정 */}
+            <View
+                style={[
+                    styles.completionWrap,
+                    { bottom: completionButtonBottom },
+                ]}
+            >
+                <BlurView
+                    intensity={completedToday ? 25 : 55}
+                    tint="light"
+                    style={styles.completionBlur}
+                >
+                    <Pressable
+                        onPress={openCompletionSheet}
+                        style={[
+                            styles.completionInner,
+                            completedToday
+                                ? styles.completionDone
+                                : styles.completionPending,
+                        ]}
+                    >
+                        <Text
+                            style={[
+                                styles.completionLabel,
+                                completedToday && styles.completionLabelDone,
+                            ]}
+                        >
+                            {completedToday
+                                ? "오늘의 플랜 완료 등록 수정"
+                                : "오늘의 플랜 완료"}
+                        </Text>
+                    </Pressable>
+                </BlurView>
+            </View>
+
+            {/* ── 부위 선택 모달 ── */}
+            <Modal
+                visible={sheetMounted}
+                transparent
+                animationType="none"
+                onRequestClose={dismissCompletionSheet}
+            >
+                <Animated.View
+                    style={[styles.backdrop, { opacity: overlayOpacity }]}
+                >
+                    <Pressable
+                        style={{ flex: 1 }}
+                        onPress={dismissCompletionSheet}
+                    />
+                    <Animated.View
+                        style={[
+                            styles.sheet,
+                            {
+                                paddingBottom: insets.bottom + 20,
+                                transform: [{ translateY: sheetTy }],
+                            },
+                        ]}
+                    >
+                        <View style={styles.sheetHandle} />
+                        <Text style={styles.sheetTitle}>
+                            {completedToday
+                                ? "완료 부위 수정"
+                                : "오늘 운동한 부위를 확인해요"}
+                        </Text>
+                        <Text style={styles.sheetSub}>
+                            탭해서 선택 해제할 수 있어요
+                        </Text>
+
+                        <View style={styles.sheetChips}>
+                            {modalBodyParts.map((part) => {
+                                const selected = selectedParts.includes(part);
+                                return (
+                                    <Pressable
+                                        key={part}
+                                        onPress={() => togglePart(part)}
+                                        style={[
+                                            styles.sheetChip,
+                                            selected && styles.sheetChipOn,
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.sheetChipText,
+                                                selected &&
+                                                    styles.sheetChipTextOn,
+                                            ]}
+                                        >
+                                            {BODY_PART_KO[part] ?? part}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+
+                        <Pressable
+                            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+                            onPress={handleSave}
+                            disabled={saving}
+                        >
+                            <Text style={styles.saveBtnText}>저장</Text>
+                        </Pressable>
+                    </Animated.View>
+                </Animated.View>
+            </Modal>
+
+            {/* ── 완료 처리 중 모달 ── */}
+            <Modal visible={showSuccessModal} transparent animationType="fade">
+                <View style={styles.successOverlay}>
+                    <Text style={styles.successEmoji}>🎉</Text>
+                    <Text style={styles.successTitle}>수고 많았어요!</Text>
+                    <Text style={styles.successSub}>
+                        운동 후 팁을 곧 보내드릴게요
+                    </Text>
+                    <ActivityIndicator
+                        color={colors.accentOrange}
+                        style={{ marginTop: 24 }}
+                    />
+                </View>
+            </Modal>
+        </SafeAreaView>
+    );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  scrollContent: { paddingBottom: 20 },
-  header: {
-    backgroundColor: colors.card,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerLabel: { fontSize: fontSize.xs, color: colors.text3, marginBottom: 2 },
-  headerTitle: { fontSize: 20, fontWeight: fontWeight.heavy, color: colors.text },
-  headerSub: { fontSize: fontSize.xs, color: colors.text2, marginTop: 2 },
-  body: { padding: spacing.md, gap: 11 },
-  sectionTitle: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.heavy,
-    color: colors.text,
-    marginBottom: 7,
-  },
-  planCard: { backgroundColor: colors.card, borderRadius: 15, padding: spacing.md },
-  exerciseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  exerciseIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exerciseName: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.text },
-  exerciseMeta: { fontSize: 10, color: colors.text3, marginTop: 1 },
-  muscleBadge: { borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
-  muscleBadgeText: { fontSize: 10, fontWeight: fontWeight.bold },
-  emptyCard: {
-    backgroundColor: colors.card,
-    borderRadius: 15,
-    padding: spacing.md,
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
-  emptyText: { fontSize: fontSize.sm, color: colors.text3, textAlign: 'center', lineHeight: 20 },
-  summaryRow: {
-    backgroundColor: colors.card,
-    borderRadius: 15,
-    flexDirection: 'row',
-    padding: spacing.md,
-  },
-  summaryItem: { flex: 1, alignItems: 'center' },
-  summaryVal: { fontSize: 16, fontWeight: fontWeight.heavy, color: colors.text },
-  summaryLabel: { fontSize: 10, color: colors.text3, marginTop: 2 },
-  startBtn: {
-    backgroundColor: colors.accent,
-    borderRadius: 15,
-    padding: 13,
-    alignItems: 'center',
-  },
-  startBtnText: { fontSize: fontSize.base, fontWeight: fontWeight.heavy, color: '#fff' },
+    safe: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    scroll: {
+        flex: 1,
+    },
+    content: {
+        paddingHorizontal: 16,
+    },
+    loader: {
+        marginVertical: 8,
+    },
+
+    // ── 헤더
+    header: {
+        paddingTop: 40,
+        paddingBottom: 24,
+    },
+    dateTitle: {
+        fontSize: fontSize.largeTitle,
+        lineHeight: 41,
+        fontWeight: fontWeight.bold,
+        color: "#7A2E00",
+        letterSpacing: -0.5,
+    },
+    greeting: {
+        fontSize: fontSize.subhead,
+        lineHeight: 20,
+        color: "#C06825",
+        marginTop: 4,
+    },
+
+    // ── 공통 카드
+    card: {
+        borderRadius: 16,
+        marginBottom: 12,
+        overflow: "hidden",
+    },
+    cardOverlay: {
+        backgroundColor: "rgba(255,255,255,0.8)",
+        padding: 16,
+    },
+    cardLabel: {
+        fontSize: fontSize.footnote,
+        fontWeight: fontWeight.semibold,
+        color: "#C06825",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+        marginBottom: 12,
+    },
+    emptyText: {
+        fontSize: fontSize.body,
+        color: "#C06825",
+        opacity: 0.6,
+    },
+
+    // ── AI 케어 팁
+    careText: {
+        fontSize: fontSize.body,
+        color: "#7A2E00",
+        lineHeight: 24,
+    },
+
+    // ── 오늘의 플랜
+    restDayRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+    },
+    restDayEmoji: {
+        fontSize: 24,
+    },
+    restDayText: {
+        fontSize: fontSize.body,
+        color: "#7A2E00",
+    },
+    chipsRow: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
+    },
+    chip: {
+        backgroundColor: "rgba(255,114,0,0.12)",
+        borderWidth: 1,
+        borderColor: "rgba(255,114,0,0.30)",
+        borderRadius: 999,
+        paddingHorizontal: 12,
+        paddingVertical: 5,
+    },
+    chipDone: {
+        backgroundColor: colors.accentOrange,
+        borderColor: colors.accentOrange,
+    },
+    chipText: {
+        fontSize: fontSize.footnote,
+        fontWeight: fontWeight.semibold,
+        color: "#C06825",
+    },
+    chipTextDone: {
+        color: "#FFFFFF",
+    },
+
+    // ── 최근 기록
+    sessionRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 10,
+    },
+    sessionLeft: {
+        flex: 1,
+        gap: 2,
+    },
+    sessionDate: {
+        fontSize: fontSize.callout,
+        fontWeight: fontWeight.semibold,
+        color: "#7A2E00",
+    },
+    sessionParts: {
+        fontSize: fontSize.footnote,
+        color: "#C06825",
+    },
+    sessionRight: {
+        alignItems: "flex-end",
+        gap: 2,
+    },
+    sessionXp: {
+        fontSize: fontSize.footnote,
+        fontWeight: fontWeight.semibold,
+        color: colors.accentOrange,
+    },
+    sessionDivider: {
+        height: 1,
+        backgroundColor: "rgba(255,114,0,0.15)",
+    },
+
+    // ── 완료 버튼 (고정)
+    completionWrap: {
+        position: "absolute",
+        left: 16,
+        right: 16,
+        shadowColor: "#FF7200",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.18,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    completionBlur: {
+        borderRadius: 999,
+        overflow: "hidden",
+    },
+    completionInner: {
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 16,
+    },
+    completionPending: {
+        backgroundColor: "rgba(255,114,0,0.88)",
+    },
+    completionDone: {
+        backgroundColor: "rgba(255,255,255,0.55)",
+    },
+    completionLabel: {
+        fontSize: fontSize.headline,
+        fontWeight: fontWeight.semibold,
+        color: "#FFFFFF",
+    },
+    completionLabelDone: {
+        color: "#C06825",
+    },
+
+    // ── 부위 선택 모달
+    backdrop: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.30)",
+    },
+    sheet: {
+        backgroundColor: colors.card,
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        padding: 24,
+        paddingTop: 12,
+    },
+    sheetHandle: {
+        width: 36,
+        height: 4,
+        backgroundColor: colors.border,
+        borderRadius: 2,
+        alignSelf: "center",
+        marginTop: 10,
+        marginBottom: 4,
+    },
+    sheetTitle: {
+        fontSize: fontSize.title3,
+        fontWeight: fontWeight.bold,
+        color: "#7A2E00",
+        marginBottom: 6,
+    },
+    sheetSub: {
+        fontSize: fontSize.footnote,
+        color: "#C06825",
+        opacity: 0.7,
+        marginBottom: 20,
+    },
+    sheetChips: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 10,
+        marginBottom: 28,
+    },
+    sheetChip: {
+        borderWidth: 1.5,
+        borderColor: "rgba(255,114,0,0.30)",
+        borderRadius: 999,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+    },
+    sheetChipOn: {
+        backgroundColor: colors.accentOrange,
+        borderColor: colors.accentOrange,
+    },
+    sheetChipText: {
+        fontSize: fontSize.callout,
+        fontWeight: fontWeight.semibold,
+        color: "#C06825",
+    },
+    sheetChipTextOn: {
+        color: "#FFFFFF",
+    },
+    saveBtn: {
+        backgroundColor: colors.accentOrange,
+        borderRadius: 14,
+        paddingVertical: 16,
+        alignItems: "center",
+    },
+    saveBtnText: {
+        fontSize: fontSize.headline,
+        fontWeight: fontWeight.bold,
+        color: "#FFFFFF",
+    },
+
+    // ── 완료 처리 중 모달
+    successOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(255,255,255,0.96)",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: 10,
+    },
+    successEmoji: {
+        fontSize: 64,
+        marginBottom: 8,
+    },
+    successTitle: {
+        fontSize: fontSize.title1,
+        fontWeight: fontWeight.bold,
+        color: "#7A2E00",
+    },
+    successSub: {
+        fontSize: fontSize.body,
+        color: "#C06825",
+    },
 });

@@ -17,10 +17,11 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.refit.app",
+      "bundleIdentifier": "com.tansan7271.refit",
       "infoPlist": {
         "NSHealthShareUsageDescription": "운동 전 컨디션 분석과 운동 후 회복 가이드를 위해 수면·심박·활동량·체중 데이터를 읽어옵니다.",
-        "NSHealthUpdateUsageDescription": "운동 기록을 건강 앱에 저장하기 위해 사용됩니다."
+        "NSHealthUpdateUsageDescription": "운동 기록을 건강 앱에 저장하기 위해 사용됩니다.",
+        "NSLocationWhenInUseUsageDescription": "오늘의 날씨를 기반으로 컨디션 리포트를 제공하기 위해 현재 위치를 사용합니다."
       }
     },
     "android": {
@@ -35,6 +36,8 @@
     },
     "plugins": [
       "expo-router",
+      "expo-background-fetch",
+      "expo-task-manager",
       "expo-secure-store",
       [
         "expo-notifications",
@@ -56,6 +59,12 @@
           "android": {
             "minSdkVersion": 26
           }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "오늘의 날씨를 기반으로 컨디션 리포트를 제공하기 위해 현재 위치를 사용합니다."
         }
       ],
       "expo-asset",

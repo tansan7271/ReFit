@@ -75,6 +75,7 @@ class WorkoutPlan(Base):
     day_of_week: Mapped[int] = mapped_column(SmallInteger, nullable=False)  # 0=Mon ~ 6=Sun
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)    # 예: "등·이두 데이"
     is_rest_day: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    planned_time: Mapped[str | None] = mapped_column(String(5), nullable=True)  # "HH:MM" UTC
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
@@ -129,7 +130,8 @@ class WorkoutSession(Base):
     total_volume_kg: Mapped[float | None] = mapped_column(Float, nullable=True)  # 총 볼륨(kg)
     calories_burned: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ai_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
-    voice_memo: Mapped[str | None] = mapped_column(Text, nullable=True)  # 음성 → 텍스트 변환
+    completed_parts: Mapped[str | None] = mapped_column(String(200), nullable=True)  # 쉼표 구분: "chest,back"
+    voice_memo: Mapped[str | None] = mapped_column(Text, nullable=True)
     xp_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 

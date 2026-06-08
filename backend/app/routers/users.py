@@ -80,6 +80,7 @@ async def complete_onboarding(
             day_of_week=dow,
             name=",".join(parts),
             is_rest_day=False,
+            planned_time=routine.planned_time,
         ))
 
     # FCM 웰컴 알림 (토큰이 없거나 실패해도 무시)

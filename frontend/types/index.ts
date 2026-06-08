@@ -26,6 +26,7 @@ export type Gender = 'male' | 'female' | 'other';
 export interface DayRoutine {
   day: Weekday;
   bodyParts: BodyPart[];
+  planned_time?: string | null; // "HH:MM" UTC
 }
 
 /** 수면 목표 (24시간 "HH:mm") */
@@ -150,6 +151,7 @@ export interface WorkoutPlan {
   day_of_week: number; // 0=월 ~ 6=일
   name: string | null;
   is_rest_day: boolean;
+  planned_time: string | null; // "HH:MM" UTC
   plan_exercises: WorkoutPlanExercise[];
   created_at: string;
   updated_at: string;
@@ -168,6 +170,7 @@ export interface WorkoutSessionSummary {
   calories_burned: number | null;
   xp_earned: number;
   ai_feedback?: string | null;
+  completed_parts?: string | null;
 }
 
 // ── Badge ─────────────────────────────────────────────────────────────────────

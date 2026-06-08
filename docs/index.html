@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>minidis · pixel watch</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #18172a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: 'Courier New', Courier, monospace;
+  color: #f0eeff;
+  gap: 0;
+  padding-bottom: 40px;
+}
+
+.title {
+  color: #3d3b5c;
+  font-size: 10px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+  margin-top: 32px;
+}
+
+.watch-outer {
+  position: relative;
+  width: 295px; height: 295px;
+  background: radial-gradient(circle at 35% 25%, #2e2c50, #141320);
+  border-radius: 50%;
+  border: 3px solid #2c2a48;
+  box-shadow: 0 0 0 1px #0a0a14, 0 12px 40px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.06);
+  display: flex; align-items: center; justify-content: center;
+}
+.watch-crown {
+  position: absolute; right: -13px; top: 50%; transform: translateY(-50%);
+  width: 13px; height: 33px;
+  background: linear-gradient(90deg,#1e1c38,#2c2a48);
+  border-radius: 3px; border: 1px solid #3a3860;
+}
+.watch-face {
+  width: 255px; height: 255px;
+  background: #0e0e12;
+  border-radius: 50%;
+  border: 2px solid #1e1c30;
+  overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  position: relative;
+}
+
+/*
+ * 100×100 @ 2px = 200px
+ * background-color 방식 — 폰트 안티앨리어싱 없음, 모아레 없음
+ */
+#pixelScreen {
+  display: grid;
+  grid-template-columns: repeat(100, 2px);
+  grid-template-rows:    repeat(100, 2px);
+  image-rendering: pixelated;
+}
+.px {
+  width: 2px; height: 2px;
+  background-color: transparent;
+  transition: background-color 0.28s ease;
+}
+.state-label {
+  position: absolute; bottom: 14px;
+  font-size: 9px; letter-spacing: 2px; color: #3d3b5c; text-transform: uppercase;
+}
+
+/* ── 컨트롤 공통 ── */
+.ctrl-section { margin-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.ctrl-heading { font-size: 9px; letter-spacing: 3px; color: #2e2c48; text-transform: uppercase; }
+.controls { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; max-width: 400px; }
+
+.ctrl-btn {
+  background: #14131f; border: 1px solid #2a2845; color: #555470;
+  padding: 6px 13px; border-radius: 18px; cursor: pointer;
+  font-size: 10px; font-family: inherit;
+  transition: all 0.16s ease; outline: none;
+}
+.ctrl-btn:hover  { background: #1e1c30; color: #c0bcf0; border-color: #4a4875; }
+.ctrl-btn.active { background: #1e1c38; border-color: #8b7ff7; color: #c8c0ff; }
+
+.acc-btn.active  { background: #1a2430; border-color: #4488ff; color: #88bbff; }
+.eff-btn.active  { background: #201a30; border-color: #bb77ff; color: #ddaaff; }
+.lv-btn.active   { background: #1a2820; border-color: #44cc88; color: #88ffbb; }
+.wp-btn.active   { background: #2a1a20; border-color: #ff6688; color: #ffaacc; }
+
+.hint { margin-top: 16px; font-size: 9px; color: #25233c; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+
+<div class="title">minidis · pixel watch</div>
+
+<div class="watch-outer">
+  <div class="watch-crown"></div>
+  <div class="watch-face">
+    <div id="pixelScreen"></div>
+    <div class="state-label" id="stateLabel"></div>
+  </div>
+</div>
+
+<!-- 상태 -->
+<div class="ctrl-section">
+  <div class="ctrl-heading">상태</div>
+  <div class="controls">
+    <button class="ctrl-btn" data-state="neutral">😐 보통</button>
+    <button class="ctrl-btn" data-state="happy">✨ 최고 컨디션</button>
+    <button class="ctrl-btn" data-state="tired">😩 수면 부족</button>
+    <button class="ctrl-btn" data-state="sleeping">💤 수면 중</button>
+    <button class="ctrl-btn" data-state="workout">🏃 운동 중</button>
+    <button class="ctrl-btn" data-state="flex">💪 운동 완료</button>
+    <button class="ctrl-btn" data-state="sedentary">😔 운동 부족</button>
+    <button class="ctrl-btn" data-state="overfed">🤢 식단 불균형</button>
+    <button class="ctrl-btn" data-state="derailed">🌧️ 루틴 깨짐</button>
+  </div>
+</div>
+
+<!-- 성장 단계 -->
+<div class="ctrl-section">
+  <div class="ctrl-heading">성장 단계</div>
+  <div class="controls">
+    <button class="ctrl-btn lv-btn" data-lv="1">1단계 아기</button>
+    <button class="ctrl-btn lv-btn" data-lv="2">2단계 활력</button>
+    <button class="ctrl-btn lv-btn" data-lv="3">3단계 튼튼</button>
+    <button class="ctrl-btn lv-btn" data-lv="4">4단계 강철</button>
+    <button class="ctrl-btn lv-btn active" data-lv="5">5단계 빛나는</button>
+  </div>
+</div>
+
+<!-- 에너지 레벨 (수면+루틴 → 몸 색상) -->
+<div class="ctrl-section">
+  <div class="ctrl-heading">에너지 레벨 (수면+루틴)</div>
+  <div class="controls">
+    <button class="ctrl-btn el-btn" data-el="0">0 없음 ⬜</button>
+    <button class="ctrl-btn el-btn" data-el="1">1 매우부족 ❄️</button>
+    <button class="ctrl-btn el-btn" data-el="2">2 부족 🔵</button>
+    <button class="ctrl-btn el-btn active" data-el="3">3 기본 🟣</button>
+    <button class="ctrl-btn el-btn" data-el="4">4 좋음 🟠</button>
+    <button class="ctrl-btn el-btn" data-el="5">5 높음 🔴</button>
+    <button class="ctrl-btn el-btn" data-el="6">6 최고 🌟</button>
+  </div>
+</div>
+
+<!-- 운동 부위 -->
+<div class="ctrl-section">
+  <div class="ctrl-heading">운동 부위 (재클릭 시 해제)</div>
+  <div class="controls">
+    <button class="ctrl-btn wp-btn" data-wp="chest">가슴 운동</button>
+    <button class="ctrl-btn wp-btn" data-wp="back">등 운동</button>
+    <button class="ctrl-btn wp-btn" data-wp="legs">하체 운동</button>
+    <button class="ctrl-btn wp-btn" data-wp="shoulders">어깨 운동</button>
+    <button class="ctrl-btn wp-btn" data-wp="arms">팔 운동</button>
+    <button class="ctrl-btn wp-btn" data-wp="core">복근 운동</button>
+  </div>
+</div>
+
+<!-- 액세서리 -->
+<div class="ctrl-section">
+  <div class="ctrl-heading">액세서리 (중복 선택 가능)</div>
+  <div class="controls">
+    <button class="ctrl-btn acc-btn" data-acc="headband">🎀 헤드밴드</button>
+    <button class="ctrl-btn acc-btn" data-acc="dumbbells">🏋 아령</button>
+    <button class="ctrl-btn acc-btn" data-acc="crown">👑 왕관</button>
+    <button class="ctrl-btn acc-btn" data-acc="sunglasses">🕶 선글라스</button>
+    <button class="ctrl-btn acc-btn" data-acc="wristband">💪 손목밴드</button>
+    <button class="ctrl-btn acc-btn" data-acc="medal">🥇 메달</button>
+    <button class="ctrl-btn acc-btn" data-acc="water_bottle">💧 물통</button>
+    <button class="ctrl-btn acc-btn" data-acc="running_shoes">👟 러닝화</button>
+    <button class="ctrl-btn acc-btn" data-acc="earphones">🎧 이어폰</button>
+  </div>
+</div>
+
+<!-- 이펙트 -->
+<div class="ctrl-section">
+  <div class="ctrl-heading">이펙트 (단일 선택)</div>
+  <div class="controls">
+    <button class="ctrl-btn eff-btn active" data-eff="">없음</button>
+    <button class="ctrl-btn eff-btn" data-eff="aura">💫 에너지 오라</button>
+    <button class="ctrl-btn eff-btn" data-eff="fire">🔥 불꽃</button>
+    <button class="ctrl-btn eff-btn" data-eff="sparkles">✨ 스파클</button>
+    <button class="ctrl-btn eff-btn" data-eff="moon_stars">🌙 달·별</button>
+    <button class="ctrl-btn eff-btn" data-eff="rain_cloud">🌧 먹구름</button>
+    <button class="ctrl-btn eff-btn" data-eff="speed_lines">💨 속도선</button>
+    <button class="ctrl-btn eff-btn" data-eff="recovery_glow">🌅 회복 오라</button>
+    <button class="ctrl-btn eff-btn" data-eff="heart_beat">❤️ 하트 비트</button>
+  </div>
+</div>
+
+<div class="hint">상태·단계·액세서리·이펙트를 조합해보세요</div>
+
+<script>
+/* ════════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════════ */
+const COLS = 100, ROWS = 100, N = ROWS * COLS;
+
+const STATES = {
+  neutral:   { fps:2, fc:2, label:'보통'        },
+  happy:     { fps:4, fc:3, label:'최고 컨디션'  },
+  tired:     { fps:2, fc:2, label:'수면 부족'    },
+  sleeping:  { fps:2, fc:3, label:'수면 중'      },
+  workout:   { fps:8, fc:4, label:'운동 중'      },
+  flex:      { fps:2, fc:2, label:'운동 완료'    },
+  sedentary: { fps:2, fc:2, label:'운동 부족'    },
+  overfed:   { fps:2, fc:2, label:'식단 불균형'   },
+  derailed:  { fps:3, fc:3, label:'루틴 깨짐'    },
+};
+
+/*
+ * 몸 색상은 ENERGY_BODY(에너지 레벨)가 결정.
+ * PAL은 eye/mouth/이펙트 색상만 담당.
+ */
+const PAL = {
+  neutral:   { body:'#c4b4ec', hi:'#ddd0ff', shd:'#8868cc', eye:'#18102e', mouth:'#18102e' },
+  happy:     { body:'#c4b4ec', hi:'#ddd0ff', shd:'#8868cc', eye:'#18102e', mouth:'#ee2244', glow:'#ffee99' },
+  tired:     { body:'#c4b4ec', hi:'#ddd0ff', shd:'#8868cc', eye:'#18102e', mouth:'#18102e', circ:'#7890a8' },
+  sleeping:  { body:'#c4b4ec', hi:'#ddd0ff', shd:'#8868cc', eye:'#18102e', mouth:'#18102e', zzz:'#9090cc' },
+  workout:   { body:'#c4b4ec', hi:'#ddd0ff', shd:'#8868cc', eye:'#18102e', mouth:'#18102e', trail:'#ff4020', sweat:'#88ccff' },
+  flex:      { body:'#c4b4ec', hi:'#ddd0ff', shd:'#8868cc', eye:'#18102e', mouth:'#ee2244', arm:'#d4a000', shine:'#ffffff', medal:'#f8d040' },
+  sedentary: { body:'#c4b4ec', hi:'#ddd0ff', shd:'#8868cc', eye:'#18102e', mouth:'#18102e', sweat:'#88ccff' },
+  overfed:   { body:'#c4b4ec', hi:'#ddd0ff', shd:'#8868cc', eye:'#18102e', mouth:'#18102e' },
+  derailed:  { body:'#c4b4ec', hi:'#ddd0ff', shd:'#8868cc', eye:'#18102e', mouth:'#18102e', cloud:'#5070a0', rain:'#88aacc' },
+};
+
+/*
+ * 에너지 레벨 → 몸 색상
+ *   0 거의흰색  1 옅은하늘  2 하늘색  3 옅은보라(기본)  4 살몬/분홍  5 주황/붉은  6 골드/노랑
+ */
+const ENERGY_BODY = {
+  0: { body: '#f0f5ff', hi: '#f8faff', shd: '#b0c8e0' },  // 거의 흰색
+  1: { body: '#c0dcf4', hi: '#e0efff', shd: '#7aaace' },  // 옅은 하늘
+  2: { body: '#88b8ec', hi: '#b8d8ff', shd: '#4478b8' },  // 하늘색
+  3: { body: '#c4b4ec', hi: '#ddd0ff', shd: '#8868cc' },  // 옅은 보라 (기본)
+  4: { body: '#f4a888', hi: '#ffd0b4', shd: '#c86040' },  // 살몬/분홍
+  5: { body: '#f07848', hi: '#ffaa80', shd: '#c04820' },  // 주황/붉은
+  6: { body: '#f8cc40', hi: '#fff080', shd: '#c89000' },  // 골드/노랑
+};
+
+/* ════════════════════════════════════════════
+   픽셀 헬퍼
+════════════════════════════════════════════ */
+function pxSet(g, r, c, col) {
+  if (r >= 0 && r < ROWS && c >= 0 && c < COLS) g[r * COLS + c] = col;
+}
+function oval(g, cx, cy, rx, ry, col) {
+  const r0 = Math.max(0, Math.ceil(cy - ry)), r1 = Math.min(ROWS-1, Math.floor(cy + ry));
+  const c0 = Math.max(0, Math.ceil(cx - rx)), c1 = Math.min(COLS-1, Math.floor(cx + rx));
+  for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+    const dx = (c-cx)/rx, dy = (r-cy)/ry;
+    if (dx*dx + dy*dy <= 1) pxSet(g, r, c, col);
+  }
+}
+function hline(g, r, c1, c2, col) { for (let c = c1; c <= c2; c++) pxSet(g, r, c, col); }
+function drawZ(g, r, c, col) {
+  hline(g, r,   c, c+4, col); pxSet(g, r+1, c+3, col);
+  pxSet(g, r+2, c+2, col);    pxSet(g, r+3, c+1, col);
+  hline(g, r+4, c, c+4, col);
+}
+
+/* ════════════════════════════════════════════
+   몸통 형태 설정
+════════════════════════════════════════════ */
+const BLOB_NORMAL = {
+  body:  [23, 17],
+  bumpL: [ -9, -19, 10,  8],
+  bumpR: [  7, -21,  8,  7],
+  handL: [-26,   4,  6,  5],
+  handR: [ 25,   3,  5,  5],
+  footL: [-10,  18,  9,  8],
+  footR: [  9,  17,  8,  7],
+  hi:    [ -7,  -6,  9,  6],
+  shdAt: 11,
+};
+/* 좁고 길쭉한 몸 + 가느다란 손발 — 힘없이 홀쭉한 느낌 */
+const BLOB_THIN = {
+  body:  [13, 20],
+  bumpL: [ -4, -18,  6,  5],
+  bumpR: [  3, -20,  5,  4],
+  handL: [-20,   5,  3,  3],
+  handR: [ 19,   4,  3,  3],
+  footL: [ -7,  21,  5,  4],
+  footR: [  6,  20,  4,  4],
+  hi:    [ -4,  -7,  5,  4],
+  shdAt: 13,
+};
+/* 거의 원형 몸통 + 크고 울룩불룩한 손발 — 굴러다닐 것 같은 느낌 */
+const BLOB_CHUBBY = {
+  body:  [28, 26],
+  bumpL: [-11, -24, 15, 13],
+  bumpR: [ 10, -26, 13, 11],
+  handL: [-32,   5, 11, 10],
+  handR: [ 31,   4, 10, 10],
+  footL: [-11,  22, 14, 12],
+  footR: [ 10,  21, 13, 11],
+  hi:    [ -9,  -9, 13, 10],
+  shdAt: 16,
+};
+
+/* ── 운동 부위별 발달 체형 ── */
+const BLOB_CHEST = {
+  body:  [27, 21],             // 몸통만 크게 (NORMAL: [23, 17])
+  bumpL: [ -9, -19, 10,  8],  // 크기 NORMAL 동일
+  bumpR: [  7, -21,  8,  7],
+  handL: [-30,   4,  6,  5],  // 더 큰 몸통 밖으로 위치 조정
+  handR: [ 29,   3,  5,  5],
+  footL: [-11,  22,  9,  8],  // 더 큰 몸통 아래로 위치 조정
+  footR: [ 10,  21,  8,  7],
+  hi:    [ -8,  -7, 10,  7],
+  shdAt: 14,
+};
+const BLOB_BACK = {
+  body:  [26, 17],
+  bumpL: [-13, -17, 14, 10],
+  bumpR: [ 11, -19, 12,  9],
+  handL: [-30,   4,  8,  5],
+  handR: [ 29,   3,  7,  5],
+  footL: [-12,  19, 10,  8],
+  footR: [ 11,  18,  9,  8],
+  hi:    [-10,  -5, 11,  6],
+  shdAt: 11,
+};
+const BLOB_LEGS = {
+  body:  [22, 18],
+  bumpL: [ -8, -19,  8,  7],
+  bumpR: [  6, -21,  6,  6],
+  handL: [-23,   3,  5,  4],
+  handR: [ 22,   2,  4,  4],
+  footL: [-12,  22, 16, 14],   // 왼발: 크게 발달
+  footR: [  9,  19,  9,  8],   // 오른발: 기본 크기
+  hi:    [ -7,  -6,  9,  6],
+  shdAt: 11,
+};
+const BLOB_SHOULDERS = {
+  body:  [23, 17],
+  bumpL: [-15, -17, 16, 12],
+  bumpR: [ 13, -19, 14, 11],
+  handL: [-28,   4,  6,  5],
+  handR: [ 27,   3,  5,  5],
+  footL: [-10,  18,  9,  8],
+  footR: [  9,  17,  8,  7],
+  hi:    [ -8,  -6, 10,  7],
+  shdAt: 11,
+};
+const BLOB_ARMS = {
+  body:  [23, 17],
+  bumpL: [ -9, -19, 10,  8],
+  bumpR: [  7, -21,  8,  7],
+  handL: [-27,   4,  6,  5],
+  handR: [ 23, -10, 10,  9],
+  footL: [-10,  18,  9,  8],
+  footR: [  9,  17,  8,  7],
+  hi:    [ -7,  -6,  9,  6],
+  shdAt: 11,
+};
+const BLOB_CORE = {
+  body:  [20, 21],
+  bumpL: [ -8, -22,  9,  7],
+  bumpR: [  6, -24,  7,  6],
+  handL: [-25,   4,  6,  5],
+  handR: [ 24,   3,  5,  5],
+  footL: [-10,  22,  9,  8],
+  footR: [  9,  21,  8,  7],
+  hi:    [ -7,  -8,  9,  6],
+  shdAt: 12,
+};
+const WORKOUT_BLOB = {
+  chest: BLOB_CHEST, back: BLOB_BACK, legs: BLOB_LEGS,
+  shoulders: BLOB_SHOULDERS, arms: BLOB_ARMS, core: BLOB_CORE,
+};
+
+function drawAbs(g, cx, cy, sc, shd) {
+  const x  = Math.round(cx);
+  const hw = Math.round(7 * sc);
+  const ra = Math.round(cy - 6 * sc);
+  const rb = Math.round(cy);
+  const rc = Math.round(cy + 6 * sc);
+  hline(g, ra, x - hw, x + hw, shd);
+  hline(g, rb, x - hw, x + hw, shd);
+  hline(g, rc, x - hw, x + hw, shd);
+  for (let r = ra + 1; r < rc; r++) pxSet(g, r, x, shd);
+}
+
+/* sc = 성장 레벨 바디 스케일 */
+function dittoBlob(g, cx, cy, color, shd, hi, cfg, sc) {
+  const scOval = ([dx, dy, rx, ry]) =>
+    oval(g, cx + dx*sc, cy + dy*sc, rx*sc, ry*sc, color);
+  oval(g, cx, cy, cfg.body[0]*sc, cfg.body[1]*sc, color);
+  scOval(cfg.bumpL); scOval(cfg.bumpR);
+  scOval(cfg.handL); scOval(cfg.handR);
+  scOval(cfg.footL); scOval(cfg.footR);
+  const shdY = cy + cfg.shdAt * sc;
+  for (let i = 0; i < N; i++) {
+    if (g[i] === color && Math.floor(i/COLS) > shdY) g[i] = shd;
+  }
+  const [hiDx, hiDy, hiRx, hiRy] = cfg.hi;
+  oval(g, cx + hiDx*sc, cy + hiDy*sc, hiRx*sc, hiRy*sc, hi);
+}
+
+/* ════════════════════════════════════════════
+   성장 레벨별 얼굴 설정
+════════════════════════════════════════════ */
+const BODY_SCALE = { 1:0.55, 2:0.70, 3:0.82, 4:0.91, 5:1.00 };
+
+/*
+ * 얼굴은 몸보다 덜 줄어든다 → 저레벨에서 눈이 몸 대비 상대적으로 커 보임.
+ * xs = 표정 내부 픽셀 오프셋 스케일 (입 너비, 눈썹 위치 등)
+ */
+const FACE_LV = {
+  1: { eyeDy:2, eyeLDx:-3, eyeRDx: 3, mouthDy:4, xs:0.55 },
+  2: { eyeDy:2, eyeLDx:-4, eyeRDx: 4, mouthDy:5, xs:0.68 },
+  3: { eyeDy:2, eyeLDx:-5, eyeRDx: 4, mouthDy:7, xs:0.82 },
+  4: { eyeDy:3, eyeLDx:-6, eyeRDx: 5, mouthDy:7, xs:0.91 },
+  5: { eyeDy:3, eyeLDx:-6, eyeRDx: 5, mouthDy:8, xs:1.00 },
+};
+
+/* 얼굴 픽셀 그리기. 위치 좌표는 buildFrame에서 계산해서 전달 */
+function drawFace(g, state, pal, er, elc, erc, mr, mc, xs) {
+  const s = n => Math.round(n * xs);
+
+  /* ── 눈 ── */
+  const dotL = () => { pxSet(g,er,  elc,pal.eye); pxSet(g,er+1,elc,pal.eye); };
+  const dotR = () => { pxSet(g,er-1,erc,pal.eye); pxSet(g,er,  erc,pal.eye); };
+
+  if (state==='sleeping') {
+    hline(g,er,elc,elc+s(2),pal.eye); hline(g,er,erc,erc+s(2),pal.eye);
+
+  } else if (state==='tired'||state==='sedentary') {
+    dotL(); dotR();
+    pxSet(g,er-s(2),elc,pal.shd); pxSet(g,er-s(2),erc,pal.shd);
+    if (state==='tired') {
+      hline(g,er+s(4),elc-s(2),elc+s(2),pal.circ); hline(g,er+s(4),erc-s(2),erc+s(2),pal.circ);
+      pxSet(g,er-s(5),elc+s(2),pal.shd); pxSet(g,er-s(5),erc-s(2),pal.shd);
+      pxSet(g,er-s(7),elc+s(4),pal.shd); pxSet(g,er-s(7),erc-s(4),pal.shd);
+    }
+
+  } else if (state==='overfed') {
+    hline(g,er,elc,elc+s(2),pal.eye); hline(g,er,erc,erc+s(2),pal.eye);
+
+  } else if (state==='workout') {
+    /* 눈 — 집중 일자 눈 */
+    hline(g,er,elc,elc+s(2),pal.eye); hline(g,er,erc,erc+s(2),pal.eye);
+    /* 눈썹 — 안쪽이 낮은 찌푸린 눈썹 */
+    pxSet(g,er-s(4),elc-s(1),pal.eye); pxSet(g,er-s(3),elc+s(1),pal.eye);
+    pxSet(g,er-s(3),erc+s(1),pal.eye); pxSet(g,er-s(4),erc+s(3),pal.eye);
+
+  } else if (state==='flex') {
+    hline(g,er,elc,elc+s(2),pal.eye); hline(g,er,erc,erc+s(2),pal.eye);
+    pxSet(g,er-s(5),elc+s(2),pal.eye); pxSet(g,er-s(3),elc,    pal.eye);
+    pxSet(g,er-s(5),erc,    pal.eye);  pxSet(g,er-s(3),erc+s(2),pal.eye);
+
+  } else if (state==='derailed') {
+    /* 눈 — ㅜ자 */
+    hline(g,er-1,elc-s(1),elc+s(1),pal.eye);
+    pxSet(g,er,  elc,pal.eye); pxSet(g,er+1,elc,pal.eye);
+    hline(g,er-1,erc-s(1),erc+s(1),pal.eye);
+    pxSet(g,er,  erc,pal.eye); pxSet(g,er+1,erc,pal.eye);
+    /* 눈썹 — 안쪽이 처진 슬픈 슬라이트 (\ /) */
+    pxSet(g,er-s(5),elc-s(2),pal.shd); pxSet(g,er-s(4),elc,    pal.shd);
+    pxSet(g,er-s(5),erc+s(2),pal.shd); pxSet(g,er-s(4),erc,    pal.shd);
+
+  } else { /* neutral, happy */
+    dotL(); dotR();
+    if (state==='happy') {
+      hline(g,er+s(6),elc-s(4),elc,    pal.shd);
+      hline(g,er+s(6),erc,    erc+s(4),pal.shd);
+    }
+  }
+
+  /* ── 입 ── */
+  if (state==='happy'||state==='flex') {
+    /* 위가 넓고 아래로 좁아지는 연속 아치 */
+    pxSet(g,mr-s(3),mc-s(10),pal.mouth); pxSet(g,mr-s(3),mc+s(10),pal.mouth);
+    hline(g,mr-s(1),mc-s(12),mc+s(12),pal.mouth);
+    hline(g,mr,     mc-s(12),mc+s(12),pal.mouth);
+    hline(g,mr+s(1),mc-s(9), mc+s(9), pal.mouth);
+    hline(g,mr+s(2),mc-s(6), mc+s(6), pal.mouth);
+    hline(g,mr+s(3),mc-s(3), mc+s(3), pal.mouth);
+  } else if (state==='workout') {
+    /* 이를 악문 노력 표정 — 작은 직사각형 입 */
+    hline(g,mr,       mc-s(4),mc+s(4),pal.mouth);
+    pxSet(g,mr+s(1),mc-s(4),pal.mouth); pxSet(g,mr+s(1),mc+s(4),pal.mouth);
+    hline(g,mr+s(2),  mc-s(4),mc+s(4),pal.mouth);
+  } else if (state==='tired'||state==='sleeping'||state==='sedentary') {
+    hline(g,mr,    mc-s(4),mc+s(4),pal.mouth);
+    pxSet(g,mr+1,mc-s(5),pal.mouth); pxSet(g,mr+1,mc+s(5),pal.mouth);
+  } else if (state==='derailed') {
+    /* 양 끝이 처진 프라운 */
+    hline(g,mr,    mc-s(4),mc+s(4),pal.mouth);
+    pxSet(g,mr+1,mc-s(5),pal.mouth); pxSet(g,mr+1,mc+s(5),pal.mouth);
+    pxSet(g,mr+2,mc-s(6),pal.mouth); pxSet(g,mr+2,mc+s(6),pal.mouth);
+  } else if (state==='overfed') {
+    hline(g,mr,    mc-s(4),mc+s(4),pal.mouth);
+    pxSet(g,mr+1,mc-s(5),pal.mouth); pxSet(g,mr+1,mc+s(5),pal.mouth);
+  } else {
+    hline(g,mr,mc-s(4),mc+s(4),pal.mouth);
+  }
+}
+
+/* ════════════════════════════════════════════
+   액세서리 (모두 sc 스케일 적용)
+════════════════════════════════════════════ */
+function drawHeadband(g, cx, cy, sc) {
+  const y=Math.round(cy-18*sc), x=Math.round(cx), w=Math.round(14*sc);
+  hline(g, y-1, x-w+2, x+w-1, '#4488ff');
+  hline(g, y,   x-w,   x+w+1, '#4488ff');
+  hline(g, y+1, x-w,   x+w+1, '#2266ee');
+  if (sc>=0.7) hline(g, y+2, x-w+1, x+w, '#2266ee');
+}
+function drawCrown(g, cx, cy, sc) {
+  const b=Math.round(cy-27*sc), x=Math.round(cx), w=Math.round(10*sc);
+  const gold='#ffdd22', dark='#cc9900', gem='#ff4488';
+  hline(g, b,   x-w, x+w, gold);
+  hline(g, b-1, x-w, x+w, gold);
+  hline(g, b-2, x-w, x+w, dark);
+  const ph=Math.max(2, Math.round(3*sc));
+  for (let i=1; i<=ph; i++) {
+    hline(g, b-2-i, x-w,   x-w+2, gold);
+    hline(g, b-2-i, x-1,   x+1,   gold);
+    hline(g, b-2-i, x+w-2, x+w,   gold);
+  }
+  pxSet(g, b-2-ph, x, gem);
+}
+function drawSunglasses(g, cx, cy, sc, er) {
+  const sy=er, x=Math.round(cx);
+  const lw=Math.round(9*sc), lh=Math.max(1,Math.round(sc)), gap=Math.max(1,Math.round(2*sc));
+  for (let r=sy-lh; r<=sy+lh; r++) {
+    hline(g, r, x-lw-gap, x-gap,    '#111122');
+    hline(g, r, x+gap,    x+lw+gap, '#111122');
+  }
+  hline(g, sy, x-gap+1, x+gap-1, '#334466');
+  pxSet(g, sy, x-lw-gap-1, '#334466');
+  pxSet(g, sy, x+lw+gap+1, '#334466');
+  if (sc>=0.7) { pxSet(g,sy-lh,x-lw-gap+1,'#3a5080'); pxSet(g,sy-lh,x+gap+1,'#3a5080'); }
+}
+function drawWristband(g, cx, cy, sc) {
+  const wy=Math.round(cy+4*sc), lx=Math.round(cx-26*sc), rx=Math.round(cx+25*sc);
+  const hw=Math.max(2,Math.round(4*sc));
+  for (let r=wy-1; r<=wy+2; r++) {
+    const c = r===wy ? '#cc2222' : '#ff4444';
+    hline(g, r, lx-hw, lx+hw, c); hline(g, r, rx-hw, rx+hw, c);
+  }
+}
+function drawMedalItem(g, cx, cy, sc) {
+  const mX=Math.round(cx), mY=Math.round(cy+19*sc), rY=Math.round(cy+8*sc);
+  const rh=Math.round(2*sc), med=Math.max(3,Math.round(5*sc));
+  hline(g, rY,      mX-2, mX+2, '#4488ff');
+  hline(g, rY+rh,   mX-2, mX+2, '#ee3344');
+  hline(g, rY+rh*2, mX-2, mX+2, '#4488ff');
+  oval(g, mX, mY, med, med, '#ffdd44');
+  pxSet(g, mY-Math.max(1,Math.round(sc)), mX, '#ffffff');
+}
+function drawDumbbells(g, cx, cy, sc) {
+  const dy=Math.round(cy-2*sc);
+  for (let r=dy-1; r<=dy+1; r++) {
+    const c = r===dy ? '#444466' : '#8888aa';
+    hline(g, r, Math.round(cx-35*sc), Math.round(cx-33*sc), c);
+    hline(g, r, Math.round(cx-30*sc), Math.round(cx-28*sc), c);
+    hline(g, r, Math.round(cx+28*sc), Math.round(cx+30*sc), c);
+    hline(g, r, Math.round(cx+33*sc), Math.round(cx+35*sc), c);
+  }
+  hline(g, dy, Math.round(cx-32*sc), Math.round(cx-31*sc), '#8888aa');
+  hline(g, dy, Math.round(cx+31*sc), Math.round(cx+32*sc), '#8888aa');
+}
+/* 신규 액세서리 */
+function drawWaterBottle(g, cx, cy, sc) {
+  const bx=Math.round(cx+31*sc), by=Math.round(cy+3*sc);
+  const rx=Math.max(2,Math.round(2*sc)), ry=Math.max(3,Math.round(5*sc));
+  oval(g, bx, by, rx, ry, '#88c4f4');
+  for (let r=by-ry+1; r<by; r++) pxSet(g, r, bx-rx+1, '#c0e8ff');
+  hline(g, by-ry-1, bx-rx+1, bx+rx-1, '#ddeeff');
+}
+function drawRunningShoes(g, cx, cy, sc) {
+  const sole='#ff4444', stripe='#ffaaaa';
+  const ly=Math.round(cy+23*sc), lx=Math.round(cx-10*sc), lw=Math.round(8*sc);
+  const ry=Math.round(cy+22*sc), rx=Math.round(cx+9*sc),  rw=Math.round(7*sc);
+  hline(g, ly,   lx-lw, lx+lw, sole);   hline(g, ly-1, lx-lw+1, lx+lw-1, stripe);
+  hline(g, ry,   rx-rw, rx+rw, sole);   hline(g, ry-1, rx-rw+1, rx+rw-1, stripe);
+}
+function drawEarphones(g, cx, cy, sc) {
+  const ey=Math.round(cy-16*sc), lx=Math.round(cx-19*sc), rx=Math.round(cx+17*sc);
+  pxSet(g,ey,  lx,'#f0f0f0'); pxSet(g,ey+1,lx,'#f0f0f0'); pxSet(g,ey,lx-1,'#cccccc');
+  pxSet(g,ey,  rx,'#f0f0f0'); pxSet(g,ey+1,rx,'#f0f0f0'); pxSet(g,ey,rx+1,'#cccccc');
+  const wireY=Math.round(cy-29*sc);
+  if (wireY < ey-1) {
+    hline(g, wireY, lx, rx, '#888888');
+    for (let r=wireY+1; r<ey; r++) { pxSet(g,r,lx,'#888888'); pxSet(g,r,rx,'#888888'); }
+  }
+}
+
+/* ════════════════════════════════════════════
+   이펙트 (sc 적용)
+════════════════════════════════════════════ */
+function drawAuraEffect(g, cx, cy, color, fi) {
+  const r = 30 + fi;
+  for (let a = 0; a < 360; a += 9) {
+    const rad = a * Math.PI / 180;
+    const px = Math.round(cx + r * Math.cos(rad));
+    const py = Math.round(cy + r * Math.sin(rad));
+    pxSet(g, py, px, color);
+    if (fi === 1) pxSet(g, py-1, px, color);
+  }
+}
+function drawFireEffect(g, cx, cy, sc, fi) {
+  const base=Math.round(cy+25*sc), sp=Math.round(12*sc);
+  const fc=['#ffcc00','#ff9900','#ff6600'];
+  for (let i=-3; i<=3; i++) {
+    const h=Math.round(((4-Math.abs(i))+(fi%2===1?Math.abs(i)%2:0)+2)*sc);
+    for (let j=0; j<h; j++)
+      pxSet(g, base-j, Math.round(cx)+Math.round(i*sp/3), fc[Math.min(2,Math.floor(j*3/h))]);
+  }
+}
+function drawSparklesEffect(g, cx, cy, sc, fi) {
+  const col='#ffee88';
+  [[cy-24*sc,cx+22*sc],[cy-30*sc,cx-18*sc],[cy-20*sc,cx+30*sc],[cy-34*sc,cx+5*sc],[cy-18*sc,cx-26*sc]]
+    .forEach(([sy,sx],i) => {
+      if ((fi+i)%2===0) {
+        const r=Math.round(sy), c=Math.round(sx);
+        pxSet(g,r,c,col); pxSet(g,r-2,c,col); pxSet(g,r+2,c,col); pxSet(g,r,c-2,col); pxSet(g,r,c+2,col);
+      }
+    });
+}
+function drawMoonStarsEffect(g, cx, cy, sc) {
+  const blue='#5e78bb';
+  const mx=Math.round(cx+22*sc), my=Math.round(cy-25*sc), ms=Math.round(8*sc);
+  oval(g, mx, my, ms, ms, blue);
+  oval(g, mx+Math.round(4*sc), my-Math.round(2*sc), Math.round(7*sc), Math.round(7*sc), null);
+  [[cy-34*sc,cx-17*sc],[cy-28*sc,cx-26*sc],[cy-37*sc,cx+11*sc]].forEach(([sy,sx]) => {
+    const r=Math.round(sy), c=Math.round(sx);
+    pxSet(g,r,c,blue); pxSet(g,r-1,c,blue); pxSet(g,r+1,c,blue); pxSet(g,r,c-1,blue); pxSet(g,r,c+1,blue);
+  });
+}
+function drawRainCloudEffect(g, cx, cy, sc, fi) {
+  const cloud='#445566', rain='#6688aa';
+  const cX=Math.round(cx+14*sc), cY=Math.round(cy-32*sc);
+  oval(g, cX,                     cY,                     Math.round(10*sc), Math.round(6*sc), cloud);
+  oval(g, cX+Math.round(8*sc),    cY-Math.round(4*sc),    Math.round(7*sc),  Math.round(5*sc), cloud);
+  oval(g, cX-Math.round(7*sc),    cY-Math.round(3*sc),    Math.round(6*sc),  Math.round(5*sc), cloud);
+  for (let d=0; d<4; d++) {
+    const dropY=cY+Math.round(9*sc)+((fi+d)%3)*2, dropX=cX-Math.round(7*sc)+d*Math.round(5*sc);
+    pxSet(g, dropY, dropX, rain); pxSet(g, dropY+1, dropX, rain);
+  }
+}
+/* 신규 이펙트 */
+function drawSpeedLinesEffect(g, cx, cy, sc, fi) {
+  const col='#99bbee', endX=Math.round(cx-26*sc);
+  [[cy-10*sc,22],[cy-3*sc,32],[cy+5*sc,26],[cy+13*sc,18]].forEach(([py,len],i) => {
+    const r=Math.round(py), aLen=len+((fi+i)%2)*5;
+    hline(g, r, Math.max(0, endX-aLen), endX, col);
+  });
+}
+function drawRecoveryGlowEffect(g, cx, cy, fi) {
+  const r1=30+fi*2, r2=r1+5;
+  for (let a=0; a<360; a+=12) {
+    const rad=a*Math.PI/180;
+    pxSet(g, Math.round(cy+r1*Math.sin(rad)), Math.round(cx+r1*Math.cos(rad)), '#ff9966');
+  }
+  for (let a=6; a<360; a+=20) {
+    const rad=a*Math.PI/180;
+    pxSet(g, Math.round(cy+r2*Math.sin(rad)), Math.round(cx+r2*Math.cos(rad)), '#ffcc88');
+  }
+}
+function drawHeartBeatEffect(g, cx, cy, sc, fi) {
+  const col='#ff4488';
+  [[cy-28*sc,cx+22*sc],[cy-22*sc,cx-24*sc],[cy-34*sc,cx+5*sc]].forEach(([hy,hx],i) => {
+    if ((fi+i)%2===0) {
+      const r=Math.round(hy), c=Math.round(hx);
+      pxSet(g,r-1,c-1,col); pxSet(g,r-1,c+1,col);
+      for(let cc=c-2;cc<=c+2;cc++) pxSet(g,r,cc,col);
+      for(let cc=c-1;cc<=c+1;cc++) pxSet(g,r+1,cc,col);
+      pxSet(g,r+2,c,col);
+    }
+  });
+}
+
+/* ════════════════════════════════════════════
+   buildFrame
+════════════════════════════════════════════ */
+function buildFrame(state, fi, accessories=[], effect=null, growthLevel=5, workoutPart=null, energyLevel=2) {
+  const g = new Array(N).fill(null);
+  /* 몸 색상은 에너지 레벨, eye/mouth/이펙트는 state */
+  const pal = { ...PAL[state], ...ENERGY_BODY[energyLevel] };
+  let dy=0, dx=0;
+  if (state==='neutral')   dy = fi===1 ? -3 : 0;
+  if (state==='happy')     dy = [0,-3,-6][fi%3];
+  if (state==='tired')     dy = fi===1 ?  3 : 0;
+  if (state==='workout')   { dy = fi%2===1?-3:0; dx = fi>=2?3:0; }
+  if (state==='sedentary') dy = fi===1 ?  2 : 0;
+  if (state==='overfed')   dx = fi===1 ?  1 : 0;
+  const cx=49.5+dx, cy=49.5+dy;
+
+  /* 성장 레벨 → 스케일 + 얼굴 설정 */
+  const sc = BODY_SCALE[growthLevel];
+  const fc = FACE_LV[growthLevel];
+  const er  = Math.round(cy + fc.eyeDy);
+  const elc = Math.round(cx + fc.eyeLDx);
+  const erc = Math.round(cx + fc.eyeRDx);
+  const mr  = Math.round(cy + fc.mouthDy);
+  const mc  = Math.round(cx);
+
+  /* L1: 배경 이펙트 */
+  if (effect==='aura') drawAuraEffect(g, cx, cy, pal.glow||pal.hi, fi);
+
+  /* L2: 몸통 */
+  const blobCfg = state==='sedentary' ? BLOB_THIN
+               : state==='overfed'   ? BLOB_CHUBBY
+               : workoutPart         ? WORKOUT_BLOB[workoutPart]
+               : BLOB_NORMAL;
+  dittoBlob(g, cx, cy, pal.body, pal.shd, pal.hi, blobCfg, sc);
+  if (workoutPart === 'core') drawAbs(g, cx, cy, sc, pal.shd);
+
+  /* L3: 몸통·손발 액세서리 */
+  if (accessories.includes('wristband'))     drawWristband(g, cx, cy, sc);
+  if (accessories.includes('dumbbells'))     drawDumbbells(g, cx, cy, sc);
+  if (accessories.includes('medal'))         drawMedalItem(g, cx, cy, sc);
+  if (accessories.includes('water_bottle'))  drawWaterBottle(g, cx, cy, sc);
+  if (accessories.includes('running_shoes')) drawRunningShoes(g, cx, cy, sc);
+
+  /* L4: 얼굴 */
+  drawFace(g, state, pal, er, elc, erc, mr, mc, fc.xs);
+
+  /* L5: 머리 액세서리 */
+  if (accessories.includes('headband'))   drawHeadband(g, cx, cy, sc);
+  if (accessories.includes('crown'))      drawCrown(g, cx, cy, sc);
+  if (accessories.includes('sunglasses')) drawSunglasses(g, cx, cy, sc, er);
+  if (accessories.includes('earphones'))  drawEarphones(g, cx, cy, sc);
+
+  /* L6: 상태 특수 FX */
+  if (state==='sleeping') {
+    const f=fi%3;
+    drawZ(g,14-f*3,52,pal.zzz); drawZ(g,4-f*3,60,pal.zzz);
+    if (f===0) { oval(g,72,10,8,8,pal.zzz); oval(g,78,8,6,6,null); }
+  }
+
+  if (state==='workout'&&fi%2===1) {
+    const tc = Math.round(cx - 34*sc);
+    const th = Math.round(7*sc);
+    for (let tr=-th; tr<=th*2; tr++) pxSet(g, Math.round(cy)+tr, tc,   pal.trail);
+    for (let tr=-th; tr<=th;   tr++) pxSet(g, Math.round(cy)+tr, tc+4, pal.trail);
+    const swC = Math.round(cx + 24*sc);
+    pxSet(g,er-3,swC,  pal.sweat);
+    pxSet(g,er-1,swC,  pal.sweat);
+    pxSet(g,er-1,swC+1,pal.sweat);
+  }
+
+  if (state==='happy'&&fi===2) {
+    const sx=Math.round(cx + 22*sc), sy=Math.round(cy - 22*sc);
+    pxSet(g,sy,  sx,  pal.glow); pxSet(g,sy-2,sx,  pal.glow);
+    pxSet(g,sy+2,sx,  pal.glow); pxSet(g,sy,  sx-2,pal.glow);
+    pxSet(g,sy,  sx+2,pal.glow);
+  }
+
+  if (state==='flex') {
+    const armOff = (-13 + (fi===1?-2:0)) * sc;
+    const ay = cy + armOff;
+    oval(g, cx - 26*sc, ay, 10*sc, 8*sc, pal.arm);
+    oval(g, cx + 26*sc, ay, 10*sc, 8*sc, pal.arm);
+    pxSet(g, Math.round(ay - 4*sc), Math.round(cx - 32*sc), pal.hi);
+    pxSet(g, Math.round(ay - 4*sc), Math.round(cx + 30*sc), pal.hi);
+    oval(g, cx - 26*sc, ay - 10*sc, 6*sc, 6*sc, pal.medal);
+    pxSet(g, Math.round(ay - 10*sc), Math.round(cx - 26*sc), pal.hi);
+    if (fi===1) {
+      const sx=Math.round(cx + 22*sc), sy=Math.round(cy - 26*sc);
+      pxSet(g,sy,  sx,  pal.shine); pxSet(g,sy-2,sx,  pal.shine);
+      pxSet(g,sy+2,sx,  pal.shine); pxSet(g,sy,  sx-2,pal.shine);
+      pxSet(g,sy,  sx+2,pal.shine);
+    }
+  }
+
+  if (state==='sedentary') {
+    const swC = erc + Math.round(18*sc);
+    pxSet(g,er,  swC,  pal.sweat);
+    pxSet(g,er+2,swC,  pal.sweat);
+    pxSet(g,er+2,swC-1,pal.sweat);
+  }
+
+  if (state==='derailed') {
+    const cX = Math.round(cx + 15*sc);
+    const cY = Math.round(cy - 32*sc);
+    oval(g,cX,                     cY,                     Math.round(8*sc),Math.round(5*sc),pal.cloud);
+    oval(g,cX+Math.round(7*sc),  cY-Math.round(3*sc),  Math.round(5*sc),Math.round(4*sc),pal.cloud);
+    oval(g,cX-Math.round(6*sc),  cY-Math.round(2*sc),  Math.round(5*sc),Math.round(4*sc),pal.cloud);
+    const dropY = cY+Math.round(7*sc)+fi*2;
+    pxSet(g,dropY,  cX-Math.round(2*sc),pal.rain); pxSet(g,dropY+1,cX-Math.round(2*sc),pal.rain);
+    pxSet(g,dropY,  cX+Math.round(4*sc),pal.rain); pxSet(g,dropY+1,cX+Math.round(4*sc),pal.rain);
+  }
+
+  /* L7: 전경 이펙트 */
+  if (effect==='fire')          drawFireEffect(g, cx, cy, sc, fi);
+  if (effect==='sparkles')      drawSparklesEffect(g, cx, cy, sc, fi);
+  if (effect==='moon_stars')    drawMoonStarsEffect(g, cx, cy, sc);
+  if (effect==='rain_cloud')    drawRainCloudEffect(g, cx, cy, sc, fi);
+  if (effect==='speed_lines')   drawSpeedLinesEffect(g, cx, cy, sc, fi);
+  if (effect==='recovery_glow') drawRecoveryGlowEffect(g, cx, cy, fi);
+  if (effect==='heart_beat')    drawHeartBeatEffect(g, cx, cy, sc, fi);
+
+  return g;
+}
+
+/* ════════════════════════════════════════════
+   DOM + 렌더링
+════════════════════════════════════════════ */
+const screenEl   = document.getElementById('pixelScreen');
+const stateLabel = document.getElementById('stateLabel');
+const spans      = new Array(N);
+
+const frag = document.createDocumentFragment();
+for (let i = 0; i < N; i++) {
+  const d = document.createElement('div');
+  d.className = 'px';
+  spans[i] = d; frag.appendChild(d);
+}
+screenEl.appendChild(frag);
+
+function render(frame) {
+  for (let i = 0; i < N; i++) spans[i].style.backgroundColor = frame[i] ?? 'transparent';
+}
+
+/* ── 상태 머신 ── */
+let curState         = 'neutral';
+let curFrame         = 0;
+let lastTs           = 0;
+let inTransition     = false;
+let activeAccessories = new Set();
+let activeEffect      = null;
+let activeGrowthLevel = 5;
+let activeWorkoutPart = null;
+let activeEnergyLevel = 3;
+
+function getFrame() {
+  return buildFrame(curState, curFrame, [...activeAccessories], activeEffect, activeGrowthLevel, activeWorkoutPart, activeEnergyLevel);
+}
+
+function setState(name) {
+  if (inTransition || name === curState) return;
+  inTransition = true;
+  document.querySelectorAll('.ctrl-btn[data-state]').forEach(b =>
+    b.classList.toggle('active', b.dataset.state === name)
+  );
+  screenEl.style.transition = 'opacity 0.14s ease';
+  screenEl.style.opacity = '0';
+  setTimeout(() => {
+    curState = name; curFrame = 0;
+    stateLabel.textContent = STATES[name].label;
+    render(getFrame());
+    screenEl.style.opacity = '1';
+    setTimeout(() => { inTransition = false; }, 160);
+  }, 150);
+}
+
+/* ── 애니메이션 루프 ── */
+function loop(ts) {
+  const st = STATES[curState];
+  if (!inTransition && ts - lastTs >= 1000 / st.fps) {
+    render(getFrame());
+    curFrame = (curFrame + 1) % st.fc;
+    lastTs = ts;
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ── 이벤트 ── */
+document.querySelectorAll('.ctrl-btn[data-state]').forEach(btn =>
+  btn.addEventListener('click', () => setState(btn.dataset.state))
+);
+
+document.querySelectorAll('.lv-btn').forEach(btn =>
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.lv-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeGrowthLevel = parseInt(btn.dataset.lv, 10);
+  })
+);
+
+document.querySelectorAll('.wp-btn').forEach(btn =>
+  btn.addEventListener('click', () => {
+    const part = btn.dataset.wp;
+    if (activeWorkoutPart === part) {
+      activeWorkoutPart = null;
+      btn.classList.remove('active');
+    } else {
+      document.querySelectorAll('.wp-btn').forEach(b => b.classList.remove('active'));
+      activeWorkoutPart = part;
+      btn.classList.add('active');
+    }
+  })
+);
+
+document.querySelectorAll('.el-btn').forEach(btn =>
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.el-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeEnergyLevel = parseInt(btn.dataset.el, 10);
+    render(getFrame());
+  })
+);
+
+document.querySelectorAll('.acc-btn').forEach(btn =>
+  btn.addEventListener('click', () => {
+    const acc = btn.dataset.acc;
+    if (activeAccessories.has(acc)) { activeAccessories.delete(acc); btn.classList.remove('active'); }
+    else                            { activeAccessories.add(acc);    btn.classList.add('active');    }
+  })
+);
+
+document.querySelectorAll('.eff-btn').forEach(btn =>
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.eff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeEffect = btn.dataset.eff || null;
+  })
+);
+
+/* ── 초기화 ── */
+document.querySelector('[data-state="neutral"]').classList.add('active');
+stateLabel.textContent = STATES['neutral'].label;
+render(getFrame());
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

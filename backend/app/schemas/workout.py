@@ -47,12 +47,14 @@ class WorkoutPlanCreate(BaseModel):
     day_of_week: int = Field(ge=0, le=6)  # 0=월 ~ 6=일
     name: str | None = Field(None, max_length=100)
     is_rest_day: bool = False
+    planned_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")  # "HH:MM" UTC
     exercises: list[PlanExerciseCreate] = []
 
 
 class WorkoutPlanUpdate(BaseModel):
     name: str | None = Field(None, max_length=100)
     is_rest_day: bool | None = None
+    planned_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")
     exercises: list[PlanExerciseCreate] | None = None
 
 
@@ -61,6 +63,7 @@ class WorkoutPlanResponse(BaseModel):
     day_of_week: int
     name: str | None
     is_rest_day: bool
+    planned_time: str | None
     plan_exercises: list[PlanExerciseResponse]
     created_at: datetime
     updated_at: datetime
@@ -99,9 +102,14 @@ class SessionStartRequest(BaseModel):
 
 
 class SessionCompleteRequest(BaseModel):
-    sets: list[WorkoutSetCreate]
+    sets: list[WorkoutSetCreate] = []
     voice_memo: str | None = Field(None, max_length=2000)
     calories_burned: int | None = Field(None, ge=0)
+    completed_parts: list[str] = []  # 완료한 운동 부위 키: ["chest", "back"]
+
+
+class SessionUpdatePartsRequest(BaseModel):
+    completed_parts: list[str] = []
 
 
 class WorkoutSessionResponse(BaseModel):
@@ -115,6 +123,7 @@ class WorkoutSessionResponse(BaseModel):
     total_volume_kg: float | None
     calories_burned: int | None
     ai_feedback: str | None
+    completed_parts: str | None
     voice_memo: str | None
     xp_earned: int
     sets: list[WorkoutSetResponse]
@@ -132,12 +141,13 @@ class WorkoutSessionSummary(BaseModel):
     total_duration_sec: int | None
     total_volume_kg: float | None
     calories_burned: int | None
+    ai_feedback: str | None
     xp_earned: int
+    completed_parts: str | None
 
     model_config = {"from_attributes": True}
 
 
 class PreWorkoutMessageResponse(BaseModel):
-    message: str
     plan_name: str | None = None
     weather_desc: str | None = None

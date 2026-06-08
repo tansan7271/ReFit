@@ -1,161 +1,129 @@
-/**
- * 온보딩 6/6 — 캐릭터·목표 선택 + 온보딩 완료.
- * 캐릭터 이모지와 운동 목표를 선택한 뒤 "ReFit 시작하기" 를 누르면
- * 수집한 페이로드를 백엔드에 제출하고 메인 탭으로 진입한다.
- */
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { OnboardingScreen } from '@/components/ui/OnboardingScreen';
-import { SelectCard } from '@/components/ui/SelectCard';
 import { colors } from '@/constants/colors';
-import { fontSize, fontWeight, radius } from '@/constants/typography';
-import { getApiErrorMessage, submitOnboarding } from '@/services/api';
+import { fontSize, fontWeight } from '@/constants/typography';
+import { submitOnboarding } from '@/services/api';
 import { useAuthStore } from '@/store/authStore';
 import { useOnboardingStore } from '@/store/onboardingStore';
 
-const CHARACTER_EMOJIS = ['🐣', '🐥', '🐻', '🐯', '🦊', '🐼'];
+const TOTAL_STEPS = 5;
 
-const GOAL_OPTIONS: { value: string; emoji: string; title: string }[] = [
-  { value: 'diet', emoji: '🔥', title: '체중 감량' },
-  { value: 'muscle', emoji: '💪', title: '근육 증가' },
-  { value: 'health', emoji: '🌿', title: '건강 유지' },
-  { value: 'endurance', emoji: '⚡', title: '체력 향상' },
-];
+function StepDots({ current }: { current: number }) {
+  return (
+    <View style={dotStyles.row}>
+      {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+        <View key={i} style={[dotStyles.dot, i === current - 1 ? dotStyles.active : dotStyles.inactive]} />
+      ))}
+    </View>
+  );
+}
+const dotStyles = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 6 },
+  dot: { height: 6, borderRadius: 3 },
+  active: { width: 20, backgroundColor: colors.accent },
+  inactive: { width: 6, backgroundColor: colors.border },
+});
 
-export default function CharacterIntroScreen() {
+export default function CharacterIntro() {
   const router = useRouter();
-  const buildPayload = useOnboardingStore((s) => s.buildPayload);
-  const setCharacterInfo = useOnboardingStore((s) => s.setCharacterInfo);
-  const resetOnboarding = useOnboardingStore((s) => s.reset);
-  const setUser = useAuthStore((s) => s.setUser);
-  const [submitting, setSubmitting] = useState(false);
+  const { buildPayload, reset } = useOnboardingStore();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [selectedEmoji, setSelectedEmoji] = useState('🐣');
-  const [selectedGoal, setSelectedGoal] = useState('health');
-
-  const canFinish = selectedEmoji !== '' && selectedGoal !== '';
-
-  const handleFinish = async () => {
-    if (!canFinish) return;
-    setCharacterInfo(selectedEmoji, selectedGoal);
-    setSubmitting(true);
+  const handleStart = async () => {
+    setError(null);
+    setLoading(true);
     try {
-      const base = buildPayload();
-      const payload = { ...base, character_emoji: selectedEmoji, goal: selectedGoal };
+      const payload = buildPayload();
       const updatedUser = await submitOnboarding(payload);
-
-      // 백엔드는 갱신된 User 를 돌려준다고 가정한다.
-      // 응답 형식이 미확정이라 방어적으로 검증: 유효한 User 가 없으면
-      // setUser(null) 로 타입을 위반하지 않고 에러로 처리한다.
-      if (!updatedUser) {
-        throw new Error('온보딩 응답에 유저 정보가 없어요.');
-      }
-
-      setUser(updatedUser);
-      resetOnboarding();
+      useAuthStore.getState().setUser(updatedUser);
+      reset();
       router.replace('/(main)');
-    } catch (error) {
-      console.error('[character-intro] 온보딩 제출 실패', error);
-      Alert.alert('온보딩 저장 실패', getApiErrorMessage(error), [
-        { text: '다시 시도' },
-      ]);
+    } catch {
+      setError('저장 중 오류가 발생했어요. 다시 시도해주세요.');
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
   return (
-    <OnboardingScreen
-      step="character-intro"
-      title="캐릭터를 골라주세요"
-      subtitle="함께 운동할 ReFit 친구와 목표를 정해요"
-      nextEnabled={canFinish && !submitting}
-      nextLoading={submitting}
-      nextLabel="ReFit 시작하기"
-      onNext={handleFinish}
-      onBack={submitting ? undefined : () => router.back()}
-    >
-      <View style={styles.charPreview}>
-        <Text style={styles.previewEmoji}>{selectedEmoji}</Text>
-        <Text style={styles.previewName}>핏삐</Text>
-      </View>
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.root}>
+        <View style={styles.header}>
+          <StepDots current={5} />
+          <Text style={styles.title}>나의 캐릭터</Text>
+          <Text style={styles.subtitle}>ReFit과 함께 운동을 시작해봐요</Text>
+        </View>
 
-      <View style={styles.emojiGrid}>
-        {CHARACTER_EMOJIS.map((emoji) => {
-          const selected = selectedEmoji === emoji;
-          return (
-            <Pressable
-              key={emoji}
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-              accessibilityLabel={`캐릭터 ${emoji}`}
-              onPress={() => setSelectedEmoji(emoji)}
-              style={[styles.emojiCell, selected && styles.emojiCellSelected]}
-            >
-              <Text style={styles.emojiCellText}>{emoji}</Text>
+        <View style={styles.content}>
+          <View style={styles.characterPlaceholder} />
+        </View>
+
+        <View style={styles.bottomAction}>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          <View style={styles.bottomRow}>
+            <Pressable style={styles.backBtn} onPress={() => router.back()}>
+              <Ionicons name="chevron-back" size={22} color={colors.text2} />
             </Pressable>
-          );
-        })}
+            <Pressable
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleStart}
+              disabled={loading}
+            >
+              {loading
+                ? <ActivityIndicator color={colors.white} />
+                : <Text style={styles.buttonText}>시작하기</Text>
+              }
+            </Pressable>
+          </View>
+        </View>
       </View>
-
-      <Text style={styles.sectionTitle}>운동 목표</Text>
-      {GOAL_OPTIONS.map((opt) => (
-        <SelectCard
-          key={opt.value}
-          emoji={opt.emoji}
-          title={opt.title}
-          description=""
-          selected={selectedGoal === opt.value}
-          onPress={() => setSelectedGoal(opt.value)}
-        />
-      ))}
-    </OnboardingScreen>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  charPreview: {
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 12,
+  safe: { flex: 1, backgroundColor: colors.white },
+  root: { flex: 1 },
+  header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32 },
+  title: {
+    fontSize: fontSize.largeTitle, fontWeight: '900', color: colors.text,
+    letterSpacing: -0.5, marginTop: 16, marginBottom: 4,
   },
-  previewEmoji: {
-    fontSize: 72,
+  subtitle: { fontSize: fontSize.subhead, color: colors.text2 },
+  content: {
+    flex: 1, justifyContent: 'center', alignItems: 'center',
   },
-  previewName: {
-    fontSize: fontSize.xl,
-    fontWeight: fontWeight.heavy,
-    color: colors.accent,
+  characterPlaceholder: {
+    width: 160, height: 160, borderRadius: 80,
+    backgroundColor: colors.bg,
+    borderWidth: 2, borderColor: colors.border,
+    borderStyle: 'dashed',
   },
-  emojiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 12,
+  bottomAction: {
+    paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8,
+    backgroundColor: colors.white,
   },
-  emojiCell: {
-    width: '31%',
-    aspectRatio: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.card,
+  errorText: {
+    color: colors.red, fontSize: fontSize.subhead,
+    textAlign: 'center', marginBottom: 8,
   },
-  emojiCellSelected: {
-    borderColor: colors.accent,
-    backgroundColor: colors.softGreen,
+  bottomRow: { flexDirection: 'row', gap: 10 },
+  backBtn: {
+    width: 52, borderRadius: 12, backgroundColor: colors.bg,
+    justifyContent: 'center', alignItems: 'center',
   },
-  emojiCellText: {
-    fontSize: 40,
+  button: {
+    flex: 1, backgroundColor: colors.accent, borderRadius: 12,
+    paddingVertical: 16, alignItems: 'center',
   },
-  sectionTitle: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.heavy,
-    color: colors.text,
-    marginTop: 4,
+  buttonDisabled: { opacity: 0.5 },
+  buttonText: {
+    color: colors.white, fontSize: fontSize.headline,
+    fontWeight: fontWeight.semibold,
   },
 });

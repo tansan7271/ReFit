@@ -1,6 +1,13 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field, model_validator
+
+
+def _to_utc_naive(dt: datetime) -> datetime:
+    """타임존 있는 datetime을 UTC naive로 변환. 이미 naive면 그대로 반환."""
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt.replace(microsecond=0)  # 초 단위로 자름 — DB 비교 일관성 확보
 
 from app.models.sleep import SleepQuality
 
@@ -60,7 +67,7 @@ class SleepStatResponse(BaseModel):
 # ── Health App Sync (HealthKit / Health Connect) ───────────────────────────────
 
 class SleepSyncItem(BaseModel):
-    """헬스 앱에서 받은 단일 수면 세션. 시각은 UTC 기준으로 전달받는다."""
+    """헬스 앱에서 받은 단일 수면 세션."""
     sleep_start: datetime
     sleep_end: datetime
     deep_sleep_minutes: int | None = Field(None, ge=0)
@@ -73,7 +80,10 @@ class SleepSyncItem(BaseModel):
     source: int = Field(ge=2, le=3)
 
     @model_validator(mode="after")
-    def end_after_start(self):
+    def normalise_and_validate(self):
+        # 타임존 제거 + 초 단위 정규화 → DB 중복 판정이 정확해짐
+        self.sleep_start = _to_utc_naive(self.sleep_start)
+        self.sleep_end = _to_utc_naive(self.sleep_end)
         if self.sleep_end <= self.sleep_start:
             raise ValueError("sleep_end must be after sleep_start")
         return self

@@ -79,6 +79,7 @@ class User(Base):
     user_badges: Mapped[list["UserBadge"]] = relationship(back_populates="user")  # type: ignore[name-defined]
     push_tokens: Mapped[list["PushToken"]] = relationship(back_populates="user")  # type: ignore[name-defined]
     notification_setting: Mapped["NotificationSetting"] = relationship(back_populates="user", uselist=False)  # type: ignore[name-defined]
+    daily_health_metrics: Mapped[list["DailyHealthMetrics"]] = relationship(back_populates="user")  # type: ignore[name-defined]
 
 
 class UserInBody(Base):

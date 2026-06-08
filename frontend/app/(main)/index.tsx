@@ -1,300 +1,335 @@
-import { useEffect, useState } from 'react';
-import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
-import { colors } from '@/constants/colors';
-import { fontSize, fontWeight, spacing } from '@/constants/typography';
-import { useLoopAnimation } from '@/hooks/useLoopAnimation';
-import { fetchSleepStats } from '@/services/api';
-import { useAuthStore } from '@/store/authStore';
-import { useWorkoutStore } from '@/store/workoutStore';
-import type { SleepStats } from '@/types';
+import { BlurView } from "expo-blur";
+import * as Location from "expo-location";
+import { Ionicons } from "@expo/vector-icons";
 
-type CharStatus = 'workout_done' | 'sleep_low' | 'normal';
+import { colors } from "@/constants/colors";
+import { fontSize, fontWeight } from "@/constants/typography";
+import { TabBackground } from "@/components/TabBackground";
+import {
+    type ConditionSnapshot,
+    fetchMe,
+    fetchConditionSnapshot,
+    fetchSleepStats,
+} from "@/services/api";
+import { useAuthStore } from "@/store/authStore";
+import type { SleepStats } from "@/types";
 
-const SLEEP_LOW_THRESHOLD = 360;
-const FALLBACK_CHIPS = ['🍌 탄수 보충', '🧘 스트레칭', '💧 수분'];
+const XP_PER_LEVEL = 500;
+const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
-const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
+function todayLabel() {
+    const d = new Date();
+    return `${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEKDAYS[d.getDay()]}요일`;
+}
 
-export default function HomeScreen() {
-  const router = useRouter();
-  const floatAnim = useLoopAnimation(-7, 1500);
-  const user = useAuthStore((s) => s.user);
-  const sessions = useWorkoutStore((s) => s.sessions);
-  const fetchSessions = useWorkoutStore((s) => s.fetchSessions);
+function formatSleep(minutes: number) {
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+}
 
-  const [sleepStats, setSleepStats] = useState<SleepStats | null>(null);
+function sleepFlavorText(actualMin: number, goalMin: number): string {
+    const delta = actualMin - goalMin;
+    if (delta <= -300)
+        return "수면이 매우 부족해요, 오늘은 스스로를 살살 대해주세요.";
+    if (delta <= -180)
+        return "수면이 꽤 부족했네요, 오늘은 조심스럽게 보내봐요.";
+    if (delta <= -60)
+        return "어젯밤 수면이 조금 부족했어요, 틈틈이 쉬어가세요.";
+    if (delta <= 30) return "수면 목표를 채웠어요! 오늘 하루도 화이팅.";
+    return "충분히 잘 쉬었네요, 오늘도 활기차게 시작해봐요!";
+}
 
-  useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
+export default function MainHome() {
+    const user = useAuthStore((s) => s.user);
+    const [snapshot, setSnapshot] = useState<ConditionSnapshot | null>(null);
+    const [sleep, setSleep] = useState<SleepStats | null>(null);
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
-    fetchSleepStats(1)
-      .then((stats) => {
-        if (active) setSleepStats(stats);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
+    useEffect(() => {
+        (async () => {
+            let lat: number | undefined;
+            let lon: number | undefined;
+            try {
+                const { status } =
+                    await Location.requestForegroundPermissionsAsync();
+                if (status === "granted") {
+                    const pos = await Location.getCurrentPositionAsync({
+                        accuracy: Location.Accuracy.Balanced,
+                    });
+                    lat = pos.coords.latitude;
+                    lon = pos.coords.longitude;
+                }
+            } catch {
+                // 위치 권한 거부 또는 불가 → 날씨 없이 진행
+            }
 
-  const todayStr = new Date().toDateString();
-  const hasWorkoutToday = sessions.some(
-    (s) =>
-      s.status === 'completed' &&
-      new Date(s.started_at).toDateString() === todayStr,
-  );
+            const [freshUser, snap, ss] = await Promise.all([
+                fetchMe().catch(() => null),
+                fetchConditionSnapshot(lat, lon).catch(() => null),
+                fetchSleepStats(1).catch(() => null),
+            ]);
+            if (freshUser) useAuthStore.getState().setUser(freshUser);
+            setSnapshot(snap);
+            setSleep(ss);
+            setLoading(false);
+        })();
+    }, []);
 
-  const hasSleepData = sleepStats !== null && sleepStats.total_records > 0;
-  const sleepLow = hasSleepData && sleepStats.avg_duration_minutes < SLEEP_LOW_THRESHOLD;
+    if (!user) return null;
 
-  const charStatus: CharStatus = hasWorkoutToday
-    ? 'workout_done'
-    : sleepLow
-      ? 'sleep_low'
-      : 'normal';
+    const insets = useSafeAreaInsets();
+    const xpInLevel = user.character_xp % XP_PER_LEVEL;
+    const xpPct = Math.min(xpInLevel / XP_PER_LEVEL, 1);
 
-  const bannerChips = !hasSleepData
-    ? FALLBACK_CHIPS
-    : sleepLow
-      ? ['😴 수면 부족 주의', '🍌 탄수 보충', '💧 수분 보충']
-      : ['🧘 스트레칭', '💧 수분 보충', '⚡ 컨디션 양호'];
-
-  const bannerMsg = sleepLow
-    ? '어제 수면이 부족했어요.\n오늘은 강도를 조금 낮춰봐요!'
-    : '오늘 운동 전에\n컨디션을 체크해봐요!';
-
-  const todayDow = new Date().getDay(); // 0=일 ~ 6=토
-  // 백엔드 day_of_week: 0=월 ~ 6=일, JS: 0=일 ~ 6=토
-  const backendDow = todayDow === 0 ? 6 : todayDow - 1;
-  const todayLabel = DAY_LABELS[backendDow];
-
-  const nickname = user?.nickname ?? '리핏';
-  const charEmoji = user?.character_emoji ?? '🐣';
-  const charLevel = user?.character_level ?? 1;
-  const charXp = user?.character_xp ?? 0;
-  const xpToNextLevel = 500;
-  const xpPercent = Math.min((charXp % xpToNextLevel) / xpToNextLevel, 1);
-
-  return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* 헤더 */}
-        <View style={styles.header}>
-          <Text style={styles.greeting}>안녕하세요 👋</Text>
-          <Text style={styles.userName}>{nickname}과 함께</Text>
-          <Text style={styles.dateWeather}>
-            {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}{' '}
-            ({todayLabel})
-          </Text>
-        </View>
-
-        <View style={styles.body}>
-          {/* 케어 배너 */}
-          <View style={styles.careBanner}>
-            <View style={styles.bannerCharCol}>
-              <Animated.Text
-                style={[styles.bannerChar, { transform: [{ translateY: floatAnim }] }]}
-              >
-                {charEmoji}
-              </Animated.Text>
-              {charStatus === 'workout_done' && (
-                <View style={[styles.statusBadge, { backgroundColor: colors.softGreen }]}>
-                  <Text style={[styles.statusBadgeText, { color: colors.green }]}>⭐ 운동 완료</Text>
-                </View>
-              )}
-              {charStatus === 'sleep_low' && (
-                <View style={[styles.statusBadge, { backgroundColor: colors.softAmber }]}>
-                  <Text style={[styles.statusBadgeText, { color: '#e65100' }]}>😴 수면 부족</Text>
-                </View>
-              )}
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.bannerTag}>⚡ 운동 전 케어</Text>
-              <Text style={styles.bannerMsg}>{bannerMsg}</Text>
-              <View style={styles.bannerChips}>
-                {bannerChips.map((chip) => (
-                  <View key={chip} style={styles.bannerChip}>
-                    <Text style={styles.bannerChipText}>{chip}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-
-          {/* 오늘의 플랜 */}
-          <View>
-            <Text style={styles.sectionTitle}>오늘의 플랜</Text>
-            <View style={styles.todayPlan}>
-              <View style={styles.planRow}>
-                <View style={[styles.planIcon, { backgroundColor: colors.softBlue }]}>
-                  <Text>🏋️</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.planName}>오늘 ({todayLabel}요일) 운동</Text>
-                  <Text style={styles.planTime}>운동 탭에서 플랜을 확인하세요</Text>
-                </View>
-                <View style={[styles.planBadge, { backgroundColor: colors.softBlue }]}>
-                  <Text style={[styles.planBadgeText, { color: colors.accent }]}>D-day</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* 캐릭터 미니 카드 */}
-          <View style={styles.charMiniCard}>
-            <Animated.Text
-              style={[styles.charMiniEmoji, { transform: [{ translateY: floatAnim }] }]}
+    return (
+        <SafeAreaView style={styles.safe} edges={["top"]}>
+            <TabBackground
+                accentColor="rgba(26,92,204,0.40)"
+                secondaryColor="rgba(73, 206, 255, 0.35)"
+                fadeToColor={colors.bg}
+            />
+            <ScrollView
+                style={styles.scroll}
+                contentContainerStyle={[
+                    styles.content,
+                    { paddingBottom: insets.bottom + 96 },
+                ]}
+                showsVerticalScrollIndicator={false}
             >
-              {charEmoji}
-            </Animated.Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.charMiniName}>{nickname} · Lv.{charLevel}</Text>
-              <Text style={styles.charMiniStatus}>😊 오늘도 화이팅!</Text>
-              <View style={styles.xpBarBg}>
-                <View style={[styles.xpBarFill, { width: `${Math.round(xpPercent * 100)}%` }]} />
-              </View>
-            </View>
-          </View>
+                {/* 헤더 */}
+                <View style={styles.header}>
+                    <Text style={styles.dateTitle}>{todayLabel()}</Text>
+                    <Text style={styles.greeting}>
+                        안녕하세요, {user.nickname}님
+                    </Text>
+                </View>
 
-          {/* 운동 시작 버튼 */}
-          <TouchableOpacity
-            style={styles.startBtn}
-            onPress={() => router.push('/(main)/pre-workout')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.startBtnText}>운동 전 체크하기 →</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+                {/* 캐릭터 카드 */}
+                <BlurView intensity={70} tint="light" style={styles.card}>
+                    <View style={styles.cardOverlay}>
+                        <Text style={styles.cardLabel}>캐릭터</Text>
+                        <View style={styles.characterPlaceholder} />
+                        <View style={styles.characterMeta}>
+                            <Text style={styles.levelText}>
+                                Lv.{user.character_level}
+                            </Text>
+                            <View style={styles.xpTrack}>
+                                <View
+                                    style={[
+                                        styles.xpFill,
+                                        { width: `${xpPct * 100}%` },
+                                    ]}
+                                />
+                            </View>
+                            <Text style={styles.xpText}>
+                                {xpInLevel} / {XP_PER_LEVEL} XP
+                            </Text>
+                        </View>
+                    </View>
+                </BlurView>
+
+                {/* 컨디션 스냅샷 카드 */}
+                <BlurView intensity={70} tint="light" style={styles.card}>
+                    <View style={styles.cardOverlay}>
+                        <Text style={styles.cardLabel}>
+                            오늘의 컨디션 리포트
+                        </Text>
+                        {loading ? (
+                            <ActivityIndicator
+                                color={colors.accent}
+                                style={styles.loader}
+                            />
+                        ) : (
+                            <View style={styles.snapshotRows}>
+                                {snapshot?.weather_desc ? (
+                                    <>
+                                        <View style={styles.snapshotRow}>
+                                            <View style={styles.iconWrap}>
+                                                <Ionicons
+                                                    name="partly-sunny-outline"
+                                                    size={18}
+                                                    color="#2E6FBF"
+                                                />
+                                            </View>
+                                            <Text style={styles.snapshotValue}>
+                                                {snapshot.weather_desc}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.divider} />
+                                    </>
+                                ) : null}
+                                <View style={styles.snapshotRow}>
+                                    <View style={styles.iconWrap}>
+                                        <Ionicons
+                                            name="moon-outline"
+                                            size={18}
+                                            color="#2E6FBF"
+                                        />
+                                    </View>
+                                    {sleep && sleep.total_records > 0 ? (
+                                        <View style={styles.sleepTextCol}>
+                                            <Text style={styles.snapshotValue}>
+                                                어젯밤 수면{" "}
+                                                {formatSleep(
+                                                    sleep.avg_duration_minutes,
+                                                )}
+                                            </Text>
+                                            <Text style={styles.sleepFlavor}>
+                                                {sleepFlavorText(
+                                                    sleep.avg_duration_minutes,
+                                                    user.sleep_goal_minutes ??
+                                                        480,
+                                                )}
+                                            </Text>
+                                        </View>
+                                    ) : (
+                                        <Text style={styles.snapshotValue}>
+                                            수면 데이터 없음
+                                        </Text>
+                                    )}
+                                </View>
+                            </View>
+                        )}
+                    </View>
+                </BlurView>
+            </ScrollView>
+        </SafeAreaView>
+    );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 20 },
-  header: {
-    backgroundColor: colors.card,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  greeting: { fontSize: fontSize.sm, color: colors.text2, marginBottom: 2 },
-  userName: { fontSize: 20, fontWeight: fontWeight.heavy, color: colors.text },
-  dateWeather: { fontSize: fontSize.xs, color: colors.text3, marginTop: 2 },
-  body: { padding: spacing.md, gap: 11 },
-  careBanner: {
-    backgroundColor: colors.accent,
-    borderRadius: 17,
-    padding: 13,
-    flexDirection: 'row',
-    gap: 9,
-    alignItems: 'flex-start',
-  },
-  bannerCharCol: { alignItems: 'center', gap: 4 },
-  bannerChar: { fontSize: 26 },
-  statusBadge: {
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  statusBadgeText: { fontSize: 11, fontWeight: fontWeight.bold },
-  bannerTag: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.7)',
-    marginBottom: 3,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 0.6,
-  },
-  bannerMsg: {
-    fontSize: fontSize.sm,
-    color: '#fff',
-    lineHeight: 18,
-    fontWeight: fontWeight.regular,
-  },
-  bannerChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 7 },
-  bannerChip: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 7,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-  },
-  bannerChipText: { fontSize: 10, color: '#fff', fontWeight: fontWeight.bold },
-  sectionTitle: {
-    fontSize: fontSize.base,
-    fontWeight: fontWeight.heavy,
-    color: colors.text,
-    marginBottom: 7,
-  },
-  todayPlan: {
-    backgroundColor: colors.card,
-    borderRadius: 15,
-    padding: spacing.md,
-  },
-  planRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 6,
-  },
-  planIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  planName: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.text },
-  planTime: { fontSize: 10, color: colors.text3 },
-  planBadge: { borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
-  planBadgeText: { fontSize: 10, fontWeight: fontWeight.bold },
-  charMiniCard: {
-    backgroundColor: colors.card,
-    borderRadius: 15,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  charMiniEmoji: { fontSize: 42 },
-  charMiniName: { fontSize: fontSize.md, fontWeight: fontWeight.heavy, color: colors.text },
-  charMiniStatus: {
-    fontSize: fontSize.xs,
-    color: colors.accent2,
-    fontWeight: fontWeight.regular,
-    marginTop: 1,
-  },
-  xpBarBg: {
-    marginTop: 5,
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  xpBarFill: {
-    height: 4,
-    backgroundColor: colors.green,
-    borderRadius: 4,
-  },
-  startBtn: {
-    backgroundColor: colors.accent,
-    borderRadius: 15,
-    padding: 13,
-    alignItems: 'center',
-  },
-  startBtnText: { fontSize: fontSize.base, fontWeight: fontWeight.heavy, color: '#fff' },
+    safe: {
+        flex: 1,
+        backgroundColor: colors.bg,
+    },
+    scroll: {
+        flex: 1,
+    },
+    content: {
+        paddingHorizontal: 16,
+    },
+
+    // 헤더
+    header: {
+        paddingTop: 40,
+        paddingBottom: 24,
+    },
+    dateTitle: {
+        fontSize: fontSize.largeTitle,
+        lineHeight: 41,
+        fontWeight: fontWeight.bold,
+        color: "#132D5E",
+        letterSpacing: -0.5,
+    },
+    greeting: {
+        fontSize: fontSize.subhead,
+        lineHeight: 20,
+        color: "#4A6B90",
+        marginTop: 4,
+    },
+
+    // 공통 카드
+    card: {
+        borderRadius: 16,
+        marginBottom: 12,
+        overflow: "hidden",
+    },
+    cardOverlay: {
+        backgroundColor: "rgba(255,255,255,0.75)",
+        padding: 16,
+    },
+    cardLabel: {
+        fontSize: fontSize.footnote,
+        fontWeight: fontWeight.semibold,
+        color: "#4A6B90",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+        marginBottom: 12,
+    },
+
+    // 캐릭터
+    characterPlaceholder: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: "#D4E3F5",
+        alignSelf: "center",
+        marginBottom: 16,
+    },
+    characterMeta: {
+        gap: 6,
+    },
+    levelText: {
+        fontSize: fontSize.title2,
+        fontWeight: fontWeight.bold,
+        color: "#132D5E",
+    },
+    xpTrack: {
+        height: 6,
+        backgroundColor: "#D4E3F5",
+        borderRadius: 3,
+        overflow: "hidden",
+    },
+    xpFill: {
+        height: "100%",
+        backgroundColor: colors.accent,
+        borderRadius: 3,
+    },
+    xpText: {
+        fontSize: fontSize.caption,
+        color: "#4A6B90",
+    },
+
+    // 컨디션 스냅샷
+    loader: {
+        marginVertical: 8,
+    },
+    snapshotRows: {
+        gap: 12,
+    },
+    divider: {
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: colors.border,
+    },
+    snapshotRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        paddingRight: 12,
+    },
+    iconWrap: {
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        backgroundColor: "rgba(46,111,191,0.10)",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    snapshotValue: {
+        flex: 1,
+        fontSize: fontSize.body,
+        color: "#132D5E",
+    },
+    sleepTextCol: {
+        flex: 1,
+    },
+    sleepFlavor: {
+        fontSize: 12,
+        color: "#5A7AB5",
+        marginTop: 3,
+    },
 });
