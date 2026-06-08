@@ -34,3 +34,6 @@ yarn-error.*
 ios/
 !ios/Podfile
 android/
+
+frontend/.claude/
+CONTEXT.md

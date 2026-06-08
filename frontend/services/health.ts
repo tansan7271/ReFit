@@ -257,7 +257,12 @@ async function syncDailyMetricsIOS(AppleHealthKit: unknown): Promise<void> {
   const cb = (resolve: (v: HKSample[]) => void) =>
     (err: unknown, d: HKSample[]) => resolve(err ? [] : d);
 
-  const [stepSamples, calSamples, restHRSamples, hrSamples] = await Promise.all([
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const cbStep = (resolve: (v: number) => void) =>
+    (err: unknown, d: { value?: number }) => resolve(err || !d ? 0 : (d.value ?? 0));
+
+  const [stepSamples, calSamples, restHRSamples, hrSamples, todaySteps] = await Promise.all([
     new Promise<HKSample[]>((r) =>
       hk.getDailyStepCountSamples({ ...opts, period: 1440 }, cb(r))),
     new Promise<HKSample[]>((r) =>
@@ -266,15 +271,25 @@ async function syncDailyMetricsIOS(AppleHealthKit: unknown): Promise<void> {
       hk.getRestingHeartRateSamples(opts, cb(r))),
     new Promise<HKSample[]>((r) =>
       hk.getHeartRateSamples({ ...opts, ascending: true }, cb(r))),
+    new Promise<number>((r) =>
+      hk.getStepCount(
+        { startDate: todayStart.toISOString(), endDate: endDate.toISOString() },
+        cbStep(r),
+      )),
   ]);
 
   console.log('[health] iOS samples — steps:', stepSamples.length,
-    'cal:', calSamples.length, 'restHR:', restHRSamples.length, 'hr:', hrSamples.length);
+    'cal:', calSamples.length, 'restHR:', restHRSamples.length, 'hr:', hrSamples.length,
+    'todaySteps:', todaySteps);
 
   type DayBucket = { steps: number; cal: number; restHR: number[]; hr: number[] };
   const days = new Map<string, DayBucket>();
+  const toLocalDate = (iso: string): string => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
   const bucket = (iso: string): DayBucket => {
-    const d = iso.slice(0, 10);
+    const d = toLocalDate(iso);
     if (!days.has(d)) days.set(d, { steps: 0, cal: 0, restHR: [], hr: [] });
     return days.get(d)!;
   };
@@ -283,6 +298,12 @@ async function syncDailyMetricsIOS(AppleHealthKit: unknown): Promise<void> {
   for (const s of calSamples) bucket(s.startDate).cal += s.value;
   for (const s of restHRSamples) bucket(s.startDate).restHR.push(s.value);
   for (const s of hrSamples) bucket(s.startDate).hr.push(s.value);
+
+  // getDailyStepCountSamples 가 오늘 partial day를 누락하는 경우 대비해 직접 조회값으로 보강
+  if (todaySteps > 0) {
+    const tb = bucket(todayStart.toISOString());
+    if (todaySteps > tb.steps) tb.steps = todaySteps;
+  }
 
   const validHR = (bpm: number) => bpm >= 20 && bpm <= 250;
 
@@ -303,7 +324,7 @@ async function syncDailyMetricsIOS(AppleHealthKit: unknown): Promise<void> {
       };
     });
 
-  console.log('[health] iOS metrics to sync:', metrics.length, metrics.map(m => m.date));
+  console.log('[health] iOS metrics to sync:', metrics.length, metrics.map(m => `${m.date}(${m.steps})`));
   if (metrics.length > 0) await syncHealthMetrics(metrics);
 }
 
@@ -362,8 +383,12 @@ async function syncDailyMetricsAndroid(): Promise<void> {
 
   type DayBucket = { steps: number; cal: number; restHR: number[]; hr: number[] };
   const days = new Map<string, DayBucket>();
+  const toLocalDate = (iso: string): string => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
   const bucket = (iso: string): DayBucket => {
-    const d = iso.slice(0, 10);
+    const d = toLocalDate(iso);
     if (!days.has(d)) days.set(d, { steps: 0, cal: 0, restHR: [], hr: [] });
     return days.get(d)!;
   };
