@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "typeRoots": [
+      "../frontend/node_modules/@types"
+    ],
+    "paths": {
+      "react":          ["../frontend/node_modules/react"],
+      "react/*":        ["../frontend/node_modules/react/*"],
+      "react-native":   ["../frontend/node_modules/react-native"],
+      "react-native/*": ["../frontend/node_modules/react-native/*"]
+    },
+    "baseUrl": "."
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ]
+}
