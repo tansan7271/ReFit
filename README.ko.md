@@ -58,7 +58,7 @@
 | **Backend**               | FastAPI · SQLAlchemy (async) · Alembic                      |
 | **DB**                    | MySQL 8.0                                                   |
 | **AI**                    | Google Gemini API                                           |
-| **푸시 알림**             | Firebase Cloud Messaging (FCM) + APScheduler                |
+| **푸시 알림**             | Expo Push API (FCM·APNs 라우팅) + APScheduler               |
 | **날씨**                  | OpenWeather API                                             |
 | **헬스 데이터 (iOS)**     | react-native-health (HealthKit)                             |
 | **헬스 데이터 (Android)** | react-native-health-connect                                 |
@@ -74,6 +74,7 @@
 - Docker Desktop
 - Node.js 22.x LTS
 - Xcode (iOS) / Android Studio (Android)
+- EAS CLI: `npm install -g eas-cli`
 
 ### 백엔드 (Docker)
 
@@ -100,6 +101,29 @@ npx expo start --clear
 
 > **Cloudflare Tunnel 사용 시**: 컨테이너 재시작마다 URL이 변경됩니다.
 > `docker logs refit_tunnel | grep trycloudflare` 로 새 URL 확인 후 `.env.local` 업데이트.
+
+### Android 빌드 추가 설정
+
+**Android SDK 경로 등록** (최초 1회)
+
+```bash
+# frontend/android/local.properties 파일 생성
+echo "sdk.dir=$HOME/Library/Android/sdk" > frontend/android/local.properties
+```
+
+**Android 푸시 알림 설정** (최초 1회)
+
+1. [Firebase Console](https://console.firebase.google.com) → 프로젝트 생성 → Android 앱 추가 (패키지명: `com.refit.app`)
+2. `google-services.json` 다운로드 → `frontend/android/app/google-services.json` 에 배치
+3. Firebase Console → 프로젝트 설정 → **서비스 계정** → 새 비공개 키 생성 (JSON 다운로드)
+4. Expo에 FCM 서비스 계정 등록:
+   ```bash
+   cd frontend
+   eas login
+   eas credentials   # Android → Google Service Account → JSON 파일 경로 입력
+   ```
+
+> `google-services.json` 과 서비스 계정 키는 보안상 `.gitignore` 처리되어 있으므로 직접 발급해야 합니다.
 
 ---
 

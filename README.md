@@ -57,7 +57,7 @@ ReFit automatically collects sleep, weather, and health data, then delivers pers
 | **Backend** | FastAPI · SQLAlchemy (async) · Alembic |
 | **Database** | MySQL 8.0 |
 | **AI** | Google Gemini API |
-| **Push Notifications** | Firebase Cloud Messaging (FCM) + APScheduler |
+| **Push Notifications** | Expo Push API (routes to FCM / APNs) + APScheduler |
 | **Weather** | OpenWeather API |
 | **Health Data (iOS)** | react-native-health (HealthKit) |
 | **Health Data (Android)** | react-native-health-connect |
@@ -73,6 +73,7 @@ ReFit automatically collects sleep, weather, and health data, then delivers pers
 - Docker Desktop
 - Node.js 22.x LTS
 - Xcode (iOS) / Android Studio (Android)
+- EAS CLI: `npm install -g eas-cli`
 
 ### Backend (Docker)
 
@@ -99,6 +100,29 @@ npx expo start --clear
 
 > **Using Cloudflare Tunnel**: The URL changes on every container restart.
 > Run `docker logs refit_tunnel | grep trycloudflare` to get the new URL and update `.env.local`.
+
+### Android Additional Setup
+
+**Register Android SDK path** (once per machine)
+
+```bash
+# Create frontend/android/local.properties
+echo "sdk.dir=$HOME/Library/Android/sdk" > frontend/android/local.properties
+```
+
+**Android push notifications** (once per project)
+
+1. [Firebase Console](https://console.firebase.google.com) → Create project → Add Android app (package: `com.refit.app`)
+2. Download `google-services.json` → place at `frontend/android/app/google-services.json`
+3. Firebase Console → Project Settings → **Service Accounts** → Generate new private key (download JSON)
+4. Register FCM service account with Expo:
+   ```bash
+   cd frontend
+   eas login
+   eas credentials   # Android → Google Service Account → enter JSON file path
+   ```
+
+> `google-services.json` and the service account key are gitignored for security — each developer must obtain them directly.
 
 ---
 
