@@ -52,6 +52,16 @@ target 'ReFit' do
       :ccache_enabled => podfile_properties['apple.ccacheEnabled'] == 'true',
     )
 
+    # fmt: iOS 26 SDK Clang이 consteval을 더 엄격하게 검사해 빌드 실패하는 이슈 우회
+    # base.h가 FMT_USE_CONSTEVAL을 무조건 재정의하므로 플래그로는 안 되고, C++17 강제가 유일한 방법
+    installer.pods_project.targets.each do |target|
+      if target.name == 'fmt'
+        target.build_configurations.each do |config|
+          config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+        end
+      end
+    end
+
     # This is necessary for Xcode 14, because it signs resource bundles by default
     # when building for devices.
     installer.target_installation_results.pod_target_installation_results
@@ -60,20 +70,6 @@ target 'ReFit' do
         resource_bundle_target.build_configurations.each do |config|
           config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
         end
-      end
-    end
-
-    # fmt consteval 호환성 패치 — RN 0.76 + Xcode 16+ 알려진 이슈
-    fmt_base_path = "#{installer.sandbox.root}/fmt/include/fmt/base.h"
-    if File.exist?(fmt_base_path)
-      content = File.read(fmt_base_path)
-      patched = content.gsub(
-        '#elif defined(__apple_build_version__) && __apple_build_version__ < 14000029L',
-        '#elif defined(__apple_build_version__)'
-      )
-      if patched != content
-        FileUtils.chmod('u+w', fmt_base_path)
-        File.write(fmt_base_path, patched)
       end
     end
   end

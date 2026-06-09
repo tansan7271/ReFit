@@ -1,4 +1,4 @@
-# ReFit
+# <img src="frontend/assets/icon.png" width="48" style="vertical-align: middle;"> ReFit
 
 > 🇺🇸 [English version](README.md)
 
