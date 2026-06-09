@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 import { registerPushToken } from '@/services/api';
 
 export async function registerForPushNotifications(): Promise<void> {
-  if (!Device.isDevice) return;
+  if (!Device.isDevice && Platform.OS === 'ios') return;
   if (Platform.OS !== 'ios' && Platform.OS !== 'android') return;
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();

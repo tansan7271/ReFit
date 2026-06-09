@@ -16,6 +16,14 @@ import * as Notifications from "expo-notifications";
 // JS 렌더링 완료 전까지 native splash를 붙잡아서 파란 blob 플래시 방지
 SplashScreen.preventAutoHideAsync();
 
+Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+    }),
+});
+
 import { colors } from "@/constants/colors";
 import { useAuthStore } from "@/store/authStore";
 import { syncSleepData, syncDailyMetrics } from "@/services/health";

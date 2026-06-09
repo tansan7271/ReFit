@@ -75,6 +75,7 @@ class FCMService:
             "sound": "default",
             "badge": 1,
             "priority": "high",
+            "channelId": "default",
             "data": data or {},
         }
 

@@ -333,6 +333,11 @@ async function syncDailyMetricsIOS(AppleHealthKit: unknown): Promise<void> {
 async function syncSleepAndroid(): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const HC = require('react-native-health-connect');
+  const status = await HC.getSdkStatus();
+  if (status !== HC.SdkAvailabilityStatus.SDK_AVAILABLE) return;
+  await HC.initialize();
+  const granted: { accessType: string; recordType: string }[] = await HC.getGrantedPermissions();
+  if (!granted.some((p) => p.accessType === 'read' && p.recordType === 'SleepSession')) return;
   const endTime = new Date().toISOString();
   const startTime = new Date(Date.now() - 30 * 86400_000).toISOString();
 
@@ -370,6 +375,11 @@ async function syncSleepAndroid(): Promise<void> {
 async function syncDailyMetricsAndroid(): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const HC = require('react-native-health-connect');
+  const status = await HC.getSdkStatus();
+  if (status !== HC.SdkAvailabilityStatus.SDK_AVAILABLE) return;
+  await HC.initialize();
+  const granted: { accessType: string; recordType: string }[] = await HC.getGrantedPermissions();
+  if (!granted.some((p) => p.accessType === 'read' && p.recordType === 'Steps')) return;
   const endTime = new Date().toISOString();
   const startTime = new Date(Date.now() - 7 * 86400_000).toISOString();
   const timeRange = { timeRangeFilter: { operator: 'between' as const, startTime, endTime } };
